@@ -48,6 +48,24 @@ html,body{margin:0;padding:0;background:var(--md-surface-2);color:var(--md-text)
 .candidate-list input[type="radio"]{margin-top:2px}
 .candidate-list label:hover{transform:translateY(-1px)}
 
+/* pastille couleur parti */
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dot, #888);
+  display: inline-block;
+  margin-top: 3px;
+  flex: 0 0 12px;
+}
+
+/* styles des items candidats (si pas déjà dans ton CSS) */
+.candidate-list label{
+  display:flex; align-items:flex-start; gap:10px;
+  background:#fff; border:1px solid var(--md-outline, #e3e8ef);
+  border-radius:12px; padding:10px; cursor:pointer;
+}
+
 /* Buttons */
 .md-button{appearance:none;border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer}
 .md-button--filled{background:var(--md-primary);color:var(--md-on-primary)}
