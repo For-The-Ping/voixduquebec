@@ -1,4 +1,4 @@
-/* ===== Material‑ish Design (sans framework) ===== */
+/* ===== Material-ish Design (sans framework) ===== */
 :root{
   --md-primary:#0B57D0;
   --md-on-primary:#fff;
@@ -16,11 +16,6 @@ html,body{
   font:400 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial;
 }
 
-/* Elevation tokens */
-.elevation-1{box-shadow:0 1px 2px rgba(10,16,20,.08),0 1px 3px rgba(10,16,20,.12)}
-.elevation-2{box-shadow:0 2px 6px rgba(10,16,20,.08),0 6px 18px rgba(10,16,20,.06)}
-.elevation-3{box-shadow:0 4px 12px rgba(10,16,20,.10),0 12px 28px rgba(10,16,20,.08)}
-
 .container{max-width:1200px;margin:24px auto;padding:0 16px}
 
 /* App bar */
@@ -31,13 +26,13 @@ html,body{
 .md-title{font-weight:800;letter-spacing:.1px}
 .md-subtitle{font-size:13px;color:var(--md-muted);margin-top:-2px}
 
-/* Grid — donne un peu plus de place à la colonne vote */
+/* Grid avec spacing 50px */
 .md-grid{
   display:grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap:24px;
+  gap:50px;   /* ← espacement entre les colonnes */
 }
-.md-card{background:var(--md-surface);border:1px solid var(--md-outline);border-radius:var(--radius);padding:16px}
+.md-card{background:var(--md-surface);border:1px solid var(--md-outline);border-radius:var(--radius);padding:16px;margin-bottom:50px}
 
 /* Chart card */
 .chart-card{position:relative;display:flex;align-items:center;justify-content:center;min-height:520px}
@@ -45,58 +40,38 @@ html,body{
 .center-label .lead{font-size:40px;font-weight:900}
 .center-label .sub{font-size:12px;color:var(--md-muted)}
 
-/* Vote card : liste sans scrollbar + bouton en bas */
-.vote-card{
-  display:flex; flex-direction:column;
-  min-height:520px;            /* même hauteur visuelle que le camembert */
-}
-
-.form{
-  display:flex;
-  flex-direction:column;
-  flex:1;                      /* occupe toute la hauteur disponible dans la carte */
-}
-
+/* Vote card */
+.vote-card{display:flex;flex-direction:column;min-height:520px}
+.form{display:flex;flex-direction:column;flex:1}
 .candidate-list{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  margin:6px 0 14px 0;
-  flex:0 0 auto;               /* ← la liste prend juste sa hauteur naturelle */
-  overflow:visible;            /* ← supprime toute scrollbar forcée */
+  display:flex;flex-direction:column;gap:14px;margin:6px 0 14px 0;
 }
-
 .candidate-list label{
-  display:flex; align-items:flex-start; gap:10px;
+  display:flex; align-items:flex-start; gap:12px;
   background:#fff; border:1px solid var(--md-outline);
-  border-radius:12px; padding:10px; cursor:pointer; transition:transform .05s ease;
+  border-radius:12px; padding:12px; cursor:pointer;
+  transition:transform .05s ease;
+  font-size:18px; font-weight:600; color:#111;   /* ← plus grand et plus visible */
 }
-.candidate-list input[type="radio"]{margin-top:2px}
+.candidate-list input[type="checkbox"]{
+  width:18px; height:18px; margin-top:3px; accent-color:var(--md-primary);
+}
 .candidate-list label:hover{transform:translateY(-1px)}
 
-.push{flex-grow:1}              /* ← pousse le bouton vers le bas */
+.push{flex-grow:1}
 
 .vote-btn{
-  width:100%; padding:12px 16px; font-weight:700; border-radius:12px;
+  width:100%; padding:8px 12px; font-weight:700; border-radius:10px;
   background:var(--md-primary); color:var(--md-on-primary); border:0; cursor:pointer;
-  font-size:1.05rem;
+  font-size:0.9rem;          /* ← plus petit bouton */
 }
 .vote-btn:hover{filter:brightness(.98)}
 
-/* ripple effect (pure CSS) */
-.ripple{position:relative;overflow:hidden}
-.ripple:after{
-  content:""; position:absolute; inset:0;
-  background:radial-gradient(circle at var(--x,50%) var(--y,50%), rgba(255,255,255,.35), transparent 40%);
-  opacity:0; transition:opacity .6s;
-}
-.ripple:active:after{opacity:1}
-
 /* pastille couleur parti */
 .dot{
-  width:12px;height:12px;border-radius:50%;
+  width:14px;height:14px;border-radius:50%;
   background: var(--dot, #888);
-  display:inline-block;margin-top:3px;flex:0 0 12px;
+  display:inline-block;margin-top:4px;flex:0 0 14px;
 }
 
 /* Results */
@@ -114,6 +89,6 @@ html,body{
 
 /* Responsive */
 @media (max-width: 1020px){
-  .md-grid{grid-template-columns:1fr;gap:16px}
+  .md-grid{grid-template-columns:1fr;gap:32px}
   .vote-card{min-height:auto}
 }
