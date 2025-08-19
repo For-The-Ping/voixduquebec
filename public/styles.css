@@ -47,6 +47,17 @@ html,body{margin:0;padding:0;background:var(--md-surface-2);color:var(--md-text)
   border-radius:12px;padding:10px;cursor:pointer;transition:transform .05s ease}
 .candidate-list input[type="radio"]{margin-top:2px}
 .candidate-list label:hover{transform:translateY(-1px)}
+#vote-form button {
+  margin-top: 1rem;   /* espace au-dessus */
+  width: 100%;        /* bouton prend toute la largeur */
+  font-size: 1.1rem;  /* un peu plus lisible */
+}
+.main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr; /* résultats 2/3 + vote 1/3 */
+  gap: 2rem;
+}
+
 
 /* pastille couleur parti */
 .dot {
