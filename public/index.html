@@ -6,22 +6,30 @@
   <title>Voix du Québec — Élection provinciale</title>
   <meta name="theme-color" content="#0B57D0" />
   <link rel="stylesheet" href="/styles.css" />
+  <!-- Chart.js (garde la même source que ton projet en ligne) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script defer src="/app.js"></script>
 </head>
 <body>
   <!-- App bar -->
-<header class="site-header">
-  <div class="header-left">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5f/Flag_of_Quebec.svg" 
-         alt="Drapeau du Québec" class="qc-flag" />
-    <h1>Voix du Québec – Élection Provinciale</h1>
-  </div>
-  <div class="header-right">
-    <span class="date">Élection : 3 octobre 2026</span>
-  </div>
-</header>
+  <header class="md-appbar elevation-3">
+    <div class="md-appbar__inner">
+      <div class="md-brand">
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/5/5f/Flag_of_Quebec.svg"
+          alt="Drapeau du Québec" class="qc-flag" />
+        <div class="md-brand__text">
+          <div class="md-title">Voix du Québec</div>
+          <div class="md-subtitle">
+            Élection provinciale — <span class="election-date">5 octobre 2026</span>
+          </div>
+        </div>
+      </div>
+      <!-- (badge supprimé) -->
+    </div>
+  </header>
 
+  <!-- Contenu -->
   <main class="container">
     <section class="md-grid">
       <article class="md-card elevation-2 chart-card">
@@ -30,17 +38,25 @@
       </article>
 
       <aside class="md-card elevation-2 vote-card">
+        <!-- (titre "Je vote" supprimé) -->
         <form id="vote-form" class="form">
           <div id="candidate-list" class="candidate-list"></div>
-          <button type="submit" class="md-button md-button--filled ripple">
+
+          <!-- espace pour descendre le bouton -->
+          <div class="push"></div>
+
+          <button type="submit" class="md-button md-button--filled ripple vote-btn">
             <span class="md-button__label">Voter</span>
           </button>
+
           <p id="msg" class="caption muted" role="status"></p>
         </form>
+
         <details class="expando">
           <summary>Pourquoi ces limites&nbsp;?</summary>
           <p class="body">
-            Anti‑spam léger : preuve de travail + limites par session et par IP, sans stocker d’adresse IP.
+            Anti‑spam léger : preuve de travail + limites par session et par IP, sans
+            stocker d’adresse IP. Objectif : garder des résultats crédibles.
           </p>
         </details>
       </aside>
