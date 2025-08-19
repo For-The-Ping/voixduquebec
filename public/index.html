@@ -3,40 +3,69 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Intentions de vote — Québec (municipales)</title>
+  <title>Voix du Québec — élection municipale de la Ville de Québec</title>
+  <meta name="theme-color" content="#0B57D0" />
   <link rel="stylesheet" href="/styles.css" />
-  <!-- Chart.js via CDN -->
+  <!-- Chart.js (si déjà en local/CDN, garde la même source qu’actuellement) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script defer src="/app.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Intentions de vote — Québec (municipales)</h1>
-    <p class="muted">Anti‑spam: PoW + limites session/IP. Aucune IP n’est stockée.</p>
+  <!-- App bar -->
+  <header class="md-appbar elevation-3">
+    <div class="md-appbar__inner">
+      <div class="md-brand">
+        <span class="md-logo" aria-hidden="true">🗳️</span>
+        <div class="md-brand__text">
+          <div class="md-title">Voix du Québec</div>
+          <div class="md-subtitle">Élection municipale — Ville de Québec</div>
+        </div>
+      </div>
+      <nav class="md-actions">
+        <span class="badge">Démo citoyenne</span>
+      </nav>
+    </div>
   </header>
 
-  <main>
-    <section class="chart-card">
-      <canvas id="chart" width="420" height="420" aria-label="Donut des intentions"></canvas>
-      <div id="center-label" aria-hidden="true"></div>
+  <!-- Contenu -->
+  <main class="container">
+    <section class="md-grid">
+      <article class="md-card elevation-2 chart-card">
+        <canvas id="chart" width="460" height="460" aria-label="Données des intentions de vote"></canvas>
+        <div id="center-label" class="center-label" aria-hidden="true"></div>
+      </article>
+
+      <aside class="md-card elevation-2 vote-card">
+        <h2 class="section-title">Je vote</h2>
+        <form id="vote-form" class="form">
+          <div id="candidate-list" class="candidate-list"></div>
+
+          <button type="submit" class="md-button md-button--filled ripple">
+            <span class="md-button__label">Voter</span>
+          </button>
+
+          <p id="msg" class="caption muted" role="status"></p>
+        </form>
+
+        <details class="expando">
+          <summary>Pourquoi ces limites&nbsp;?</summary>
+          <p class="body">
+            Anti‑spam léger : preuve de travail + limites par session et par IP, sans
+            stocker d’adresse IP. Objectif : garder des résultats crédibles.
+          </p>
+        </details>
+      </aside>
     </section>
 
-    <section class="vote-card">
-      <h2>Je vote</h2>
-      <form id="vote-form">
-        <div id="candidate-list" class="candidate-list"></div>
-        <button type="submit" class="vote-btn">Voter</button>
-        <p id="msg" class="msg"></p>
-      </form>
-      <details class="note"><summary>Pourquoi ces limites ?</summary>
-        <p>Pour éviter les rafales automatisées et garder des résultats crédibles, tout en restant simple et respectueux de la vie privée.</p>
-      </details>
-    </section>
-
-    <section class="results-card">
-      <h2>Résultats en direct</h2>
+    <section class="md-card elevation-2 results-card">
+      <h2 class="section-title">Résultats en direct</h2>
       <div id="results-table"></div>
+      <p class="caption muted end-note">Projet citoyen, non scientifique.</p>
     </section>
   </main>
+
+  <footer class="footer">
+    <p class="caption muted">© Voix du Québec</p>
+  </footer>
 </body>
 </html>
