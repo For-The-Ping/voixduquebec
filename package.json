@@ -1,0 +1,15 @@
+{
+  "name": "quebec-muni-poll-antispam-cdn-guarded",
+  "version": "1.2.0",
+  "description": "Sondage municipal Québec avec donut Chart.js (CDN) + protections anti-spam (session, IP, PoW)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^4.19.2",
+    "luxon": "^3.5.0"
+  }
+}
