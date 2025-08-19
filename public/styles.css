@@ -104,3 +104,25 @@ html,body{margin:0;padding:0;background:var(--md-surface-2);color:var(--md-text)
 @media (max-width: 1020px){
   .md-grid{grid-template-columns:1fr;gap:16px}
 }
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: #f8f9fa;
+  border-bottom: 2px solid #ddd;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.qc-flag {
+  height: 40px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
