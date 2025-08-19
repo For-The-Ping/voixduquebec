@@ -1,0 +1,15 @@
+:root{--bg:#ffffff;--text:#111827;--muted:#6b7280;--card:#f8fafc;--border:#e5e7eb;--accent:#111827}
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+header{padding:24px 16px;text-align:center;border-bottom:1px solid var(--border)}h1{margin:0 0 6px 0;font-size:22px;font-weight:800}.muted{color:var(--muted);font-size:13px}
+main{max-width:1100px;margin:24px auto;display:grid;grid-template-columns:1fr 420px;gap:24px;padding:0 16px}
+.chart-card,.vote-card,.results-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.03)}
+.chart-card{grid-column:1/2;display:flex;align-items:center;justify-content:center;position:relative;min-height:460px}
+#center-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+#center-label .lead{font-size:36px;font-weight:900}#center-label .sub{font-size:12px;color:var(--muted)}
+.vote-card{grid-column:2/3}.vote-card h2,.results-card h2{margin:8px 0 12px 0;font-size:18px}
+.candidate-list{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;max-height:360px;overflow:auto;padding-right:4px}
+.candidate{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.vote-btn{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--accent);color:white;font-weight:800;cursor:pointer}.vote-btn:hover{filter:brightness(.95)}
+.msg{min-height:18px;margin-top:8px;font-size:13px;color:var(--muted)}.results-card{grid-column:1/3}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--border);text-align:left}.table th{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}.table td{font-size:14px}
+@media (max-width:980px){main{grid-template-columns:1fr;gap:16px}.vote-card{grid-column:1/2}.results-card{grid-column:1/2}}
