@@ -47,23 +47,29 @@ html,body{
 
 /* Vote card : on pousse le bouton plus bas */
 .vote-card{
-  display:flex; flex-direction:column;
-  min-height:520px;            /* même hauteur visuelle que le camembert */
+  display:flex;
+  flex-direction:column;
+  min-height:520px; /* garde la même hauteur que le camembert */
 }
-.form{display:flex;flex-direction:column;height:100%}
+
+.form{
+  display:flex;
+  flex-direction:column;
+  flex:1;             /* prend toute la hauteur de la carte */
+}
+
 .candidate-list{
-  display:flex;flex-direction:column;gap:10px;
-  margin:6px 0 14px 0;max-height:none; /* laisse respirer */
-  overflow:auto;padding-right:4px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin:6px 0 14px 0;
+  flex:0 0 auto;      /* ← empêche de forcer du scroll */
+  overflow:visible;   /* ← supprime la scrollbar */
 }
-.candidate-list label{
-  display:flex; align-items:flex-start; gap:10px;
-  background:#fff; border:1px solid var(--md-outline);
-  border-radius:12px; padding:10px; cursor:pointer; transition:transform .05s ease;
+
+.push{
+  flex-grow:1;        /* pousse le bouton voter vers le bas */
 }
-.candidate-list input[type="radio"]{margin-top:2px}
-.candidate-list label:hover{transform:translateY(-1px)}
-.push{flex:1}            /* <-- pousse le bouton vers le bas */
 .vote-btn{
   width:100%; padding:12px 16px; font-weight:700; border-radius:12px;
   background:var(--md-primary); color:var(--md-on-primary); border:0; cursor:pointer;
