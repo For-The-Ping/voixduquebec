@@ -38,13 +38,14 @@ let DATA = loadData();
 
 // --- Candidates ---
 const candidates = [
-  { id:1, name:'Coalition Avenir Québec (François Legault)', color:'#0aa2c0' },  // turquoise
-  { id:2, name:'Parti Québécois (Paul St‑Pierre Plamondon)', color:'#1b4db3' },  // bleu
-  { id:3, name:'Parti libéral du Québec (chef actuel)',      color:'#d32f2f' },  // rouge
-  { id:4, name:'Québec solidaire (Gabriel Nadeau‑Dubois)',   color:'#f36f21' },  // orange
-  { id:5, name:'Parti conservateur du Québec (Éric Duhaime)',color:'#1d2e6e' },  // bleu foncé
-  { id:6, name:'Parti Vert du Québec (chef actuel)',         color:'#2e7d32' },  // vert
+  { id:1, name:'Coalition Avenir Québec (François Legault)',          color:'#0aa2c0' },
+  { id:2, name:'Parti Québécois (Paul St‑Pierre Plamondon)',          color:'#1b4db3' },
+  { id:3, name:'Parti libéral du Québec (Pablo Rodriguez)',           color:'#d32f2f' }, // ← chef ajouté
+  { id:4, name:'Québec solidaire (Gabriel Nadeau‑Dubois)',            color:'#f36f21' },
+  { id:5, name:'Parti conservateur du Québec (Éric Duhaime)',         color:'#1d2e6e' },
+  { id:6, name:'Parti Vert du Québec (Alex Tyrrell)',                 color:'#2e7d32' }, // ← chef ajouté
 ];
+
 
 // init tallies
 for (const c of candidates) if (!DATA.votes[c.id]) DATA.votes[c.id] = 0;
