@@ -102,14 +102,14 @@ app.get('/api/health', (req, res)=>{
 
 app.get('/api/candidates', (req, res)=> res.json(candidates));
 
-app.get('/api/results', (req, res)=> {
-  const total = Object.values(DATA.votes).reduce((a,b)=>a+b,0);
+app.get('/api/results', (req, res) => {
+  const total = Object.values(DATA.votes).reduce((a, b) => a + b, 0);
   const results = candidates.map(c => {
     const v = DATA.votes[c.id] || 0;
-    const percent = total ? Math.round(v*1000/total)/10 : 0;
-    return { id:c.id, name:c.name, votes:v, percent };
+    const percent = total ? Math.round(v * 1000 / total) / 10 : 0;
+    return { id: c.id, name: c.name, votes: v, percent, color: c.color };  // <-- couleur ajoutée
   });
-  const leader = results.reduce((acc, r) => (acc && acc.votes>r.votes)? acc : r, null);
+  const leader = results.reduce((acc, r) => (acc && acc.votes > r.votes) ? acc : r, null);
   res.json({ total, leader, results });
 });
 
