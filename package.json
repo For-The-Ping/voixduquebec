@@ -1,19 +1,16 @@
 {
-  "name": "quebec-muni-poll-antispam-cdn-guarded",
-  "version": "1.2.0",
-  "description": "Sondage municipal Québec avec donut Chart.js (CDN) + protections anti-spam (session, IP, PoW)",
+  "name": "voix-du-quebec",
+  "version": "1.0.0",
+  "description": "Voix du Québec — sondage provincial (PoW + limites anti-spam)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "license": "MIT",
+  "engines": { "node": ">=18" },
   "dependencies": {
-    "cookie-parser": "^1.4.7",
+    "chart.js": "^4.4.3",
+    "cookie-parser": "^1.4.6",
     "express": "^4.19.2",
-    "luxon": "^3.5.0"
+    "luxon": "^3.4.4"
   }
-  "dependencies": {
-  "chart.js": "^4.4.3",
-  "...": "..."
-}
 }
