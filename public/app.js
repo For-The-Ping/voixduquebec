@@ -113,6 +113,19 @@
     return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
   }
 
+  // === Ripple util pour les boutons auth ===
+  function attachRipple(el){
+    if (!el) return;
+    el.addEventListener('click', () => {
+      el.classList.remove('is-rippling');
+      // force reflow pour relancer l’animation si clics rapprochés
+      // eslint-disable-next-line no-unused-expressions
+      el.offsetWidth;
+      el.classList.add('is-rippling');
+      setTimeout(()=> el.classList.remove('is-rippling'), 500);
+    });
+  }
+
   // === OAuth UI ===
   async function updateAuthStatus(){
     try{
@@ -127,7 +140,7 @@
       }
 
       // Boutons + petit hint près des boutons
-      const loginBtn  = $('#loginBtn');   // <-- IDs HTML
+      const loginBtn  = $('#loginBtn');   // IDs HTML
       const logoutBtn = $('#logoutBtn');
       const hintEl    = document.querySelector('[data-auth-hint]');
 
@@ -216,9 +229,17 @@
       await waitForChart();
       const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
 
-      // Branchement correct sur les IDs HTML
-      const lg = $('#loginBtn');  if (lg) lg.addEventListener('click', ()=> location.href='/auth/google');
-      const lo = $('#logoutBtn'); if (lo) lo.addEventListener('click', logout);
+      // Branchement correct sur les IDs HTML + ripple
+      const lg = $('#loginBtn');
+      if (lg) {
+        lg.addEventListener('click', ()=> location.href='/auth/google');
+        attachRipple(lg);
+      }
+      const lo = $('#logoutBtn');
+      if (lo) {
+        lo.addEventListener('click', logout);
+        attachRipple(lo);
+      }
 
       await refresh(); setInterval(refresh,30000);
     }catch(e){ console.error(e); const msg=$('#msg'); if(msg) msg.textContent=e.message; }
