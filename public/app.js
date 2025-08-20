@@ -3,19 +3,7 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   let chart;
 
-  // ========== Helpers CSS vars (style contrôlé par le CSS) ==========
-  const cssVar = (name, fb=null) =>
-    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
-  const toNum = (v, fb) => {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : fb;
-  };
-
-  const PIE_LABEL_COLOR = () => cssVar('--pie-label-color', '#fff');
-  const PIE_LABEL_SIZE  = () => toNum(cssVar('--pie-label-font-size', '16'), 16);
-  const LEGEND_FONT_SZ  = () => toNum(cssVar('--pie-legend-font-size', '14'), 14);
-
-  // ========== Couleurs fallback par parti ==========
+  // ===== Couleurs de partis (fallback) ======================================
   const PARTY_COLORS = [
     { test:/coalition avenir québec|caq/i,               color:'#0aa2c0' },
     { test:/parti québécois|pq|plamondon/i,              color:'#1b4db3' },
@@ -27,22 +15,21 @@
   const pickColor = (name, fb='#888') =>
     (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
 
-  // ========== Acronyme + chef ==========
+  // ===== ACRONYME + Chef (pour la colonne de droite) ========================
   const partyAcronym = (name) => {
     const map = [
       { re:/coalition avenir québec|caq/i, ac:'CAQ' }, { re:/parti québécois|pq/i, ac:'PQ' },
       { re:/parti libéral du québec|plq/i, ac:'PLQ' }, { re:/québec solidaire|qs/i, ac:'QS' },
-      { re:/parti conservateur du québec|pcq/i, ac:'PCQ' }, { re:/parti vert du québec|pvq/i, ac:'PVQ' }
+      { re:/parti conservateur du québec|pcq/i, ac:'PCQ'}, { re:/parti vert du québec|pvq/i, ac:'PVQ' }
     ];
-    const hit = map.find(m=>m.re.test(name));
-    if (hit) return hit.ac;
+    const hit = map.find(m=>m.re.test(name)); if (hit) return hit.ac;
     return name.replace(/[()]/g,'').split(/\s+/)
-      .filter(w=>w.length>=3 && !/^(de|du|des|la|le|les|et)$/i.test(w))
+      .filter(w=>w.length>=3&&!/^(de|du|des|la|le|les|et)$/i.test(w))
       .map(w=>w[0].toUpperCase()).slice(0,4).join('');
   };
   const extractLeader = (name) => (name.match(/\(([^)]+)\)/)?.[1] || '').trim();
 
-  // ========== Fetch JSON (robuste) ==========
+  // ===== Fetch helper ========================================================
   async function fetchJSON(url, opts={}){
     const r = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
     if (!r.ok){
@@ -53,20 +40,19 @@
     return r.json();
   }
 
-  // ========== Liste des candidats (colonne de droite) ==========
+  // ===== Liste de vote (à droite) : "ACRONYME Chef" =========================
   function renderCandidates(list){
-    const wrap = $('#candidate-list');
-    if (!wrap) return;
-    wrap.innerHTML = '';
+    const wrap = $('#candidate-list'); if (!wrap) return;
+    wrap.innerHTML='';
 
-    list.forEach(c => {
+    list.forEach(c=>{
       const color  = c.color || pickColor(c.name);
       const acro   = partyAcronym(c.name);
       const leader = (c.leader && c.leader.trim()) || extractLeader(c.name);
       const display = leader ? `${acro} ${leader}` : acro;
 
       const label = document.createElement('label');
-      label.className = 'candidate';
+      label.className='candidate';
       label.title = c.name; // tooltip : nom complet
       label.innerHTML = `
         <span class="dot" style="--dot:${color}"></span>
@@ -75,42 +61,41 @@
       wrap.appendChild(label);
     });
 
-    // un seul choix à la fois
+    // un seul choix
     wrap.addEventListener('change', e=>{
-      if (e.target && e.target.name === 'candidate' && e.target.checked){
-        $$('input[name="candidate"]').forEach(x => { if (x !== e.target) x.checked = false; });
+      if (e.target && e.target.name==='candidate' && e.target.checked){
+        $$('input[name="candidate"]').forEach(x=>{ if(x!==e.target) x.checked=false; });
       }
     });
   }
 
-  // ========== Tableau des résultats (noms complets) ==========
+  // ===== Tableau résultats (noms complets) ==================================
   function renderTable(res){
-    const mount = $('#results-table'); if (!mount) return;
-    mount.innerHTML = '';
-    const t = document.createElement('table');
-    t.className = 'table';
+    const m=$('#results-table'); if (!m) return;
+    m.innerHTML='';
+    const t=document.createElement('table'); t.className='table';
     t.innerHTML = `<thead><tr><th>Parti / Candidat</th><th>Votes</th><th>%</th></tr></thead>
-      <tbody>${res.map(r => `
+      <tbody>${res.map(r=>`
         <tr>
-          <td><span class="dot" style="--dot:${r.color || pickColor(r.name)}"></span> ${r.name}</td>
-          <td>${r.votes}</td><td>${(r.percent ?? 0).toFixed(1)}%</td>
+          <td><span class="dot" style="--dot:${r.color||pickColor(r.name)}"></span> ${r.name}</td>
+          <td>${r.votes}</td><td>${(r.percent??0).toFixed(1)}%</td>
         </tr>`).join('')}</tbody>`;
-    mount.appendChild(t);
+    m.appendChild(t);
   }
 
-  // ========== Plugin Chart.js : labels en blanc, taille via CSS vars ==========
+  // ===== Labels blancs au centre des parts (lisibles) =======================
   const sliceLabels = {
-    id: 'sliceLabels',
+    id:'sliceLabels',
     afterDatasetsDraw(chart){
-      const {ctx} = chart, ds = chart.data?.datasets?.[0];
-      if(!ds) return;
+      const {ctx}=chart, ds=chart.data?.datasets?.[0];
+      if(!ds) return; 
       const meta=chart.getDatasetMeta(0), total=(ds.data||[]).reduce((a,b)=>a+Number(b||0),0)||0;
 
       ctx.save();
-      ctx.fillStyle   = PIE_LABEL_COLOR();
-      ctx.textAlign   = 'center';
-      ctx.textBaseline= 'middle';
-      ctx.font        = `700 ${PIE_LABEL_SIZE()}px ui-sans-serif,system-ui`;
+      ctx.fillStyle='#fff';              // texte blanc
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.font='700 16px ui-sans-serif,system-ui'; // plus gros
 
       meta.data.forEach((arc,i)=>{
         const v=Number(ds.data[i]||0); if(!v||!total) return;
@@ -125,90 +110,128 @@
     }
   };
 
-  // ========== Camembert (mise en page via CSS ; tailles via CSS vars) ==========
-  function drawPie(data){
-    const c = $('#chart'); if (!c) return;
-    const labels = data.results.map(r=>r.name);     // légende : noms complets
-    const values = data.results.map(r=>r.votes);
-    const colors = data.results.map(r=>r.color || pickColor(r.name));
-    if (chart) chart.destroy();
+  // ===== Légende HTML en 2 colonnes =========================================
+  // On crée un conteneur sous le canvas et on y génère la légende (2 colonnes).
+  function ensureLegendContainer(){
+    let el = $('#chart-legend');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'chart-legend';
+      el.style.marginTop = '12px';
+      el.style.display   = 'grid';
+      el.style.gridTemplateColumns = '1fr 1fr'; // 2 colonnes
+      el.style.gap = '8px 24px';
+      el.style.justifyItems = 'start';
+      const card = $('.chart-card') || $('#chart')?.parentElement;
+      if (card) card.appendChild(el);
+    }
+    return el;
+  }
 
-    chart = new Chart(c.getContext('2d'), {
-      type: 'pie',
-      data: { labels, datasets:[{ data: values, backgroundColor: colors, borderWidth: 0 }] },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'bottom',
-            labels: { font: { size: LEGEND_FONT_SZ() } } // lu depuis CSS var
-          },
-          tooltip: { enabled: true }
+  const htmlLegendPlugin = {
+    id: 'htmlLegend2Cols',
+    afterUpdate(chart, args, opts){
+      const container = ensureLegendContainer();
+      // reset
+      container.innerHTML = '';
+
+      const items = chart.options.plugins.legend.labels.generateLabels(chart);
+      // 2 colonnes : on fabrique 2 <ul>, on répartit 3/3
+      const mid = Math.ceil(items.length / 2);
+      const cols = [document.createElement('ul'), document.createElement('ul')];
+      cols.forEach(ul => {
+        ul.style.listStyle = 'none';
+        ul.style.margin = '0';
+        ul.style.padding = '0';
+        ul.style.display = 'flex';
+        ul.style.flexDirection = 'column';
+        container.appendChild(ul);
+      });
+
+      items.forEach((item, i) => {
+        const ul = i < mid ? cols[0] : cols[1];
+        const li = document.createElement('li');
+        li.style.cursor = 'pointer';
+        li.style.display = 'flex';
+        li.style.alignItems = 'center';
+        li.style.gap = '8px';
+        li.style.fontSize = '16px'; // taille de police de la légende
+        // swatch
+        const box = document.createElement('span');
+        box.style.display = 'inline-block';
+        box.style.width = '22px';
+        box.style.height = '10px';
+        box.style.borderRadius = '2px';
+        box.style.background = item.fillStyle;
+        box.style.border = '1px solid rgba(0,0,0,.15)';
+        // label
+        const txt = document.createElement('span');
+        txt.textContent = item.text;
+
+        li.appendChild(box);
+        li.appendChild(txt);
+
+        // clic pour masquer/afficher une série (utile si plusieurs datasets)
+        li.onclick = () => {
+          const { type } = chart.config;
+          if (type === 'pie' || type === 'doughnut') {
+            chart.toggleDataVisibility(item.index);
+          } else {
+            chart.setDatasetVisibility(item.datasetIndex, !chart.isDatasetVisible(item.datasetIndex));
+          }
+          chart.update();
+        };
+
+        ul.appendChild(li);
+      });
+    }
+  };
+
+  // ===== Camembert ===========================================================
+  function drawPie(data){
+    const c=$('#chart'); if (!c) return;
+    const labels=data.results.map(r=>r.name);           // légende = noms complets
+    const values=data.results.map(r=>r.votes);
+    const colors=data.results.map(r=>r.color||pickColor(r.name));
+
+    if(chart) chart.destroy();
+
+    // s'assure que le conteneur de légende existe
+    ensureLegendContainer();
+
+    chart=new Chart(c.getContext('2d'),{
+      type:'pie',
+      data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:0 }] },
+      options:{ 
+        responsive:true,
+        plugins:{ 
+          legend:{ display:false },   // on cache la légende canvas
+          tooltip:{enabled:true}
         }
       },
-      plugins: [sliceLabels]
+      plugins:[sliceLabels, htmlLegendPlugin]
     });
   }
 
-  // ========== Refresh global ==========
+  // ===== Refresh global ======================================================
   async function refresh(){
     const cands = await fetchJSON('/api/candidates');
     renderCandidates(cands);
 
-    const data  = await fetchJSON('/api/results');
-    data.results = data.results.map(r => ({ ...r, color: r.color || pickColor(r.name) }));
+    const data = await fetchJSON('/api/results');
+    data.results = data.results.map(r=>({ ...r, color:r.color||pickColor(r.name) }));
     renderTable(data.results);
     drawPie(data);
 
     await updateAuthStatus();
   }
 
-  // ========== Proof-of-Work utils (si activés côté serveur) ==========
-  async function sha256Hex(s){
-    const b=new TextEncoder().encode(s);
-    const d=await crypto.subtle.digest('SHA-256', b);
-    return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join('');
-  }
-  function countLeadingZeroBitsFromHex(hex){
-    let bits=0;
-    for(let i=0;i<hex.length;i++){
-      const n=parseInt(hex[i],16);
-      if(n===0){bits+=4;continue}
-      for(let j=3;j>=0;j--){ if(((n>>j)&1)===0) bits++; else return bits; }
-    }
-    return bits;
-  }
-  async function solvePow(ch,bits){
-    let n=0;
-    while(true){
-      const h=await sha256Hex(`${ch}:${n}`);
-      if(countLeadingZeroBitsFromHex(h)>=bits) return n;
-      n++;
-    }
-  }
-  function makeNonce(){
-    if (crypto.randomUUID) return crypto.randomUUID();
-    const a=new Uint8Array(16); crypto.getRandomValues(a);
-    return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
-  }
-
-  // ========== Ripple pour les boutons auth ==========
-  function attachRipple(el){
-    if (!el) return;
-    el.addEventListener('click', () => {
-      el.classList.remove('is-rippling'); el.offsetWidth; // reflow
-      el.classList.add('is-rippling');
-      setTimeout(()=> el.classList.remove('is-rippling'), 500);
-    });
-  }
-
-  // ========== Auth UI ==========
+  // ===== Auth UI =============================================================
   async function updateAuthStatus(){
     try{
       const me = await fetchJSON('/api/me');
       const loginBtn  = $('#loginBtn');
-      const logoutBtn = '#logoutBtn' && $('#logoutBtn');
+      const logoutBtn = $('#logoutBtn');
       if (loginBtn && logoutBtn) {
         if (me.authenticated) {
           loginBtn.style.display  = 'none';
@@ -228,12 +251,12 @@
     await updateAuthStatus();
   }
 
-  // ========== Vote ==========
+  // ===== Vote ================================================================
   async function vote(ev){
     ev.preventDefault();
-    const sel = $$('input[name="candidate"]').find(x=>x.checked);
-    const msg = $('#msg');
-    if (!sel) return;
+    const s=$$('input[name="candidate"]').find(x=>x.checked);
+    const msg=$('#msg');
+    if(!s) return;
 
     try{
       const me = await fetchJSON('/api/me');
@@ -242,92 +265,42 @@
         return;
       }
 
-      // Si ton backend exige un PoW / Turnstile :
-      let payload = { candidateId: Number(sel.value) };
+      if (msg) msg.textContent='Envoi…';
+      await fetchJSON('/api/vote', {
+        method:'POST',
+        body: JSON.stringify({ candidateId: Number(s.value) })
+      });
 
-      try {
-        const {challenge,bits} = await fetchJSON('/api/pow');
-        const powNonce = await solvePow(challenge,bits);
-        payload = { ...payload, pow:{ challenge, nonce: powNonce }, nonce: makeNonce(), ts: Date.now() };
-      } catch { /* si /api/pow absent → on ignore, c’est ok */ }
-
-      if (window.turnstile && typeof window.turnstile.getResponse==='function') {
-        try { payload.cf_turnstile_response = window.turnstile.getResponse(); } catch {}
-      }
-
-      if (msg) msg.textContent = 'Envoi…';
-      const res = await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
-
-      if (msg) msg.textContent = res?.message || 'Merci! Vote enregistré (modifiable).';
+      if (msg) msg.textContent='Merci! Vote enregistré.';
       await refresh();
     }catch(e){
-      if (msg) msg.textContent = e.message || 'Erreur lors du vote.';
+      if (msg) msg.textContent=e.message||'Erreur lors du vote.';
     }
   }
 
-  // ========== Attente Chart.js chargé ==========
+  // ===== Attendre Chart.js ===================================================
   async function waitForChart(maxMs=3000){
     const t0=performance.now();
-    while (typeof window.Chart === 'undefined') {
-      if (performance.now() - t0 > maxMs) throw new Error('Chart.js non chargé — vérifie /vendor/chart.umd.js');
+    while(typeof window.Chart==='undefined'){
+      if(performance.now()-t0>maxMs) throw new Error('Chart.js non chargé — vérifie /vendor/chart.umd.js');
       await new Promise(r=>setTimeout(r,50));
     }
   }
 
-  // ========== Observer: met à jour la légende si la var CSS change ==========
-  function observeLegendFontSize(){
-    const root = document.documentElement;
-    let last = cssVar('--pie-legend-font-size', '14');
-    setInterval(() => {
-      const cur = cssVar('--pie-legend-font-size', '14');
-      if (cur !== last && chart) {
-        last = cur;
-        chart.options.plugins.legend.labels.font.size = parseInt(cur, 10) || 14;
-        options: {
-          plugins: {
-            legend: {
-              display: true,
-              labels: {
-                font: {
-                  size: 16 // garde ta police plus grosse
-                },
-                generateLabels: function (chart) {
-                  const labels = Chart.overrides.pie.plugins.legend.labels.generateLabels(chart);
-                  // On coupe en 2 colonnes
-                  const mid = Math.ceil(labels.length / 2);
-                  return labels.map((l, i) => {
-                    l.textAlign = i < mid ? 'left' : 'right';
-                    return l;
-                  });
-                }
-              },
-              position: 'bottom'
-            }
-          },
-          layout: {
-            padding: 20
-          }
-        }
-        chart.update();
-      }
-    }, 500);
-  }
-
-  // ========== Boot ==========
+  // ===== Boot ================================================================
   document.addEventListener('DOMContentLoaded', async ()=>{
     try{
       await waitForChart();
 
-      const form = $('#vote-form'); if (form) form.addEventListener('submit', vote);
-      const lg = $('#loginBtn');   if (lg) { lg.addEventListener('click', ()=> location.href='/auth/google'); attachRipple(lg); }
-      const lo = $('#logoutBtn');  if (lo) { lo.addEventListener('click', logout);                             attachRipple(lo); }
+      const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
+      const lg = $('#loginBtn');  if (lg) lg.addEventListener('click', ()=> location.href='/auth/google');
+      const lo = $('#logoutBtn'); if (lo) lo.addEventListener('click', logout);
 
       await refresh();
-      observeLegendFontSize();
-      setInterval(refresh, 30000);
+      setInterval(refresh,30000);
     }catch(e){
       console.error(e);
-      const msg=$('#msg'); if (msg) msg.textContent = e.message;
+      const msg=$('#msg'); if(msg) msg.textContent=e.message;
     }
   });
 })();
