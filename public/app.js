@@ -209,3 +209,20 @@
     }
   });
 })();
+// === Observer les changements de --pie-legend-font-size ===
+(function observeLegendFontSize() {
+  const root = document.documentElement;
+  let last = getComputedStyle(root).getPropertyValue('--pie-legend-font-size');
+
+  function check() {
+    const current = getComputedStyle(root).getPropertyValue('--pie-legend-font-size');
+    if (current !== last && chart) {
+      last = current;
+      chart.options.plugins.legend.labels.font.size = parseInt(current, 10) || 12;
+      chart.update();
+    }
+  }
+
+  // Vérifie régulièrement (léger)
+  setInterval(check, 500);
+})();
