@@ -7,7 +7,7 @@
   /* Pilote les parties dessinées dans le canvas */
   --pie-label-color:#fff;           /* texte au centre des parts */
   --pie-label-font-size:16;         /* px */
-  --pie-legend-font-size:10;        /* px (légende Chart.js) */
+  --pie-legend-font-size:100;        /* px (légende Chart.js) */
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
