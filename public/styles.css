@@ -110,7 +110,7 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
 .auth-hint{ margin:0 0 0 4px; color:#6b7280; font-size:.92rem; }
 
 #btn-vote { position: relative; z-index: 10; } /* vote bouton cliquable */
-
+#loginBtn, #logoutBtn { cursor: pointer; }
 /* Ripple (même logique que pour "Voter" si tu ajoutes la classe is-rippling en JS) */
 .auth-actions .btn::after{
   content:""; position:absolute; left:50%; top:50%;
