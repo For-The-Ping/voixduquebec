@@ -1,49 +1,126 @@
-:root{
-  --md-primary:#0B57D0; --md-on-primary:#fff; --md-surface:#fff; --md-surface-2:#f6f8fb;
-  --md-outline:#e3e8ef; --md-text:#0b1220; --md-muted:#5b6472; --radius:16px;
+/* === Variables couleurs globales === */
+:root {
+  --bg-0: #070b12;
+  --bg-1: #0b1220;
+  --grid: #122038;
+  --text: #e6ecff;
+  --muted: #92a0c0;
+  --accent: #0b57d0;
+  --accent-hover: #0d66ff;
+  --accent-danger: #ff4d6d;
+  --card: #0e1727cc;
+  --shadow: 0 6px 20px rgba(0,0,0,.35);
+  --radius: 1rem;
 }
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--md-surface-2);color:var(--md-text);
-  font:400 16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Arial}
-.elevation-2{box-shadow:0 2px 6px rgba(10,16,20,.08),0 6px 18px rgba(10,16,20,.06)}
-.elevation-3{box-shadow:0 4px 12px rgba(10,16,20,.10),0 12px 28px rgba(10,16,20,.08)}
-.container{max-width:1200px;margin:24px auto;padding:0 16px}
 
-.md-appbar{background:var(--md-surface);position:sticky;top:0;z-index:10;border-bottom:1px solid var(--md-outline)}
-.md-appbar__inner{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
-.md-brand{display:flex;gap:12px;align-items:center}
-.qc-flag{height:32px;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
-.md-title{font-weight:800}
-.md-subtitle{font-size:13px;color:var(--md-muted);margin-top:-2px}
+/* === Reset === */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: system-ui, sans-serif; }
+body {
+  background: radial-gradient(1200px 800px at 70% -10%,#1a2744 0%,#0c1425 50%, var(--bg-0) 100%);
+  color: var(--text);
+  line-height: 1.5;
+  display: flex; flex-direction: column;
+}
 
-.md-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:50px}
-.md-card{background:var(--md-surface);border:1px solid var(--md-outline);border-radius:var(--radius);padding:16px;margin-bottom:50px}
+/* === Header === */
+.md-appbar {
+  background: var(--bg-1);
+  color: var(--text);
+  padding: 0.5rem 1rem;
+  box-shadow: var(--shadow);
+}
+.md-appbar__inner {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.md-brand { display: flex; align-items: center; gap: 0.75rem; }
+.qc-flag { height: 32px; border-radius: 4px; }
+.md-brand__text { display: flex; flex-direction: column; }
+.md-title { font-weight: 600; font-size: 1.2rem; }
+.md-subtitle { font-size: 0.85rem; color: var(--muted); }
 
-.chart-card{position:relative;display:flex;align-items:center;justify-content:center;min-height:520px}
-.center-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+/* === Layout === */
+.container { flex: 1; padding: 1rem; max-width: 1200px; margin: auto; }
+.md-grid {
+  display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;
+}
+@media (max-width: 900px) {
+  .md-grid { grid-template-columns: 1fr; }
+}
 
-.vote-card{display:flex;flex-direction:column;min-height:520px}
-.form{display:flex;flex-direction:column;flex:1}
-.candidate-list{display:flex;flex-direction:column;gap:14px;margin:6px 0 14px 0}
-.candidate{display:flex;align-items:flex-start;gap:12px;background:#fff;border:1px solid var(--md-outline);
-  border-radius:12px;padding:12px;cursor:pointer;transition:transform .05s}
-.candidate:hover{transform:translateY(-1px)}
-.candidate input[type="checkbox"]{width:18px;height:18px;margin-top:3px;accent-color:var(--md-primary)}
-.cand-name{font-size:18px;font-weight:600;color:#111}
-.dot{width:14px;height:14px;border-radius:50%;background:var(--dot,#888);display:inline-block;margin-top:4px;flex:0 0 14px}
-.push{flex:1}
-.vote-btn{width:100%;padding:8px 12px;font-weight:700;border-radius:10px;background:var(--md-primary);
-  color:var(--md-on-primary);border:0;cursor:pointer;font-size:.9rem}
-.vote-btn:hover{filter:brightness(.98)}
-.ripple{position:relative;overflow:hidden}
-.ripple:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at var(--x,50%) var(--y,50%),rgba(255,255,255,.35),transparent 40%);opacity:0;transition:opacity .6s}
-.ripple:active:after{opacity:1}
+/* === Cards === */
+.md-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+.chart-card { display: flex; align-items: center; justify-content: center; }
+.vote-card { display: flex; flex-direction: column; gap: 1rem; }
+.results-card { margin-top: 1.5rem; }
 
-.section-title{margin:4px 0 12px 0;font-size:18px;font-weight:700}
-.table{width:100%;border-collapse:collapse}
-.table th,.table td{padding:10px;border-bottom:1px solid var(--md-outline);text-align:left}
-.table th{font-size:12px;color:var(--md-muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-.table td{font-size:14px}
-.caption{font-size:12px}.muted{color:var(--md-muted)}
-.footer{padding:24px 16px;text-align:center;color:var(--md-muted)}
-@media (max-width:1020px){.md-grid{grid-template-columns:1fr;gap:32px}.vote-card{min-height:auto}}
+/* === Forms === */
+.form { display: flex; flex-direction: column; gap: 0.5rem; }
+.candidate-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.candidate {
+  display: flex; align-items: center; gap: 0.5rem;
+  cursor: pointer; font-size: 0.95rem;
+}
+.candidate input[type="checkbox"] { accent-color: var(--accent); }
+.dot {
+  display: inline-block; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--dot, var(--accent));
+}
+
+/* === Buttons === */
+.md-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.6rem 1rem;
+  border-radius: 9999px;
+  font-weight: 600; font-size: 0.9rem;
+  background: none; border: 2px solid var(--accent);
+  color: var(--accent); cursor: pointer; transition: .2s;
+}
+.md-button--filled {
+  background: var(--accent); color: white;
+  border-color: var(--accent);
+}
+.md-button:hover { background: var(--accent-hover); color: #fff; border-color: var(--accent-hover); }
+
+/* Special vote btn */
+.vote-btn { width: 100%; margin-top: 0.5rem; }
+
+/* === Messages & status === */
+.caption { font-size: 0.8rem; }
+.muted { color: var(--muted); }
+#msg { min-height: 1rem; }
+#auth-status { font-style: italic; margin-left: 0.5rem; }
+
+/* === Table === */
+.table {
+  width: 100%; border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+.table th, .table td {
+  padding: 0.5rem; text-align: left;
+}
+.table th { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
+.table tr:nth-child(even) { background: rgba(255,255,255,0.05); }
+
+/* === Expando === */
+.expando {
+  margin-top: 1rem; font-size: 0.85rem;
+}
+.expando summary { cursor: pointer; color: var(--accent); }
+
+/* === Center pie labels === */
+.center-label {
+  position: absolute; text-align: center;
+  font-size: 1.2rem; font-weight: 600;
+}
+
+/* === Footer === */
+.footer {
+  text-align: center; padding: 0.5rem;
+  color: var(--muted); font-size: 0.8rem;
+}
