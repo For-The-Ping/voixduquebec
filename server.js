@@ -119,7 +119,14 @@ app.get('/api/pow', (req, res)=>{
   res.json({ challenge, bits: POW_BITS });
 });
 
-function checkLimits(req, res, next){
+// ----- Limites (dev/démo paramétrables) -----
+const DEMO = process.env.DEMO_MODE === '1';          // <- mets DEMO_MODE=1 sur Render pour tests
+const MIN_INTERVAL_MS = DEMO ? 3000 : 60000;         // 3s en démo (au lieu de 60s)
+const SESSION_MAX_PER_DAY = DEMO ? 1000 : 10;        // large en démo
+const IP_MAX_10MIN = DEMO ? 1000 : 5;
+const IP_MAX_PER_DAY = DEMO ? 5000 : 100;
+
+function checkLimits(req, res, next) {
   const now = Date.now();
   const ip = getClientIp(req);
   const sid = ensureSession(req, res);
@@ -130,19 +137,18 @@ function checkLimits(req, res, next){
   if (ipEntry.day !== todayStr()) { ipEntry.day = todayStr(); ipEntry.countDay = 0; }
   ipEntry.count10m++; ipEntry.countDay++; ipBuckets.set(ip, ipEntry);
 
-  if (ipEntry.count10m > 5) return res.status(429).json({ error:'Trop de votes depuis cette IP (10 min). Réessayez plus tard.' });
-  if (ipEntry.countDay > 100) return res.status(429).json({ error:'Quota quotidien IP atteint.' });
+  if (ipEntry.count10m > IP_MAX_10MIN) return res.status(429).json({ error:`Trop de votes IP (10 min)` });
+  if (ipEntry.countDay > IP_MAX_PER_DAY) return res.status(429).json({ error:`Quota quotidien IP atteint` });
 
   // Session bucket
   const s = sessionBuckets.get(sid) || { lastVoteTs: 0, day: todayStr(), countDay: 0 };
   if (s.day !== todayStr()) { s.day = todayStr(); s.countDay = 0; }
-  if (now - s.lastVoteTs < 60*1000) return res.status(429).json({ error:'Patientez 60s entre deux votes depuis ce navigateur.' });
-  if (s.countDay >= 10) return res.status(429).json({ error:'Limite 10 votes/jour depuis ce navigateur.' });
+  if (now - s.lastVoteTs < MIN_INTERVAL_MS) return res.status(429).json({ error:`Patientez ${Math.ceil(MIN_INTERVAL_MS/1000)}s` });
+  if (s.countDay >= SESSION_MAX_PER_DAY) return res.status(429).json({ error:`Limite ${SESSION_MAX_PER_DAY} votes/jour` });
   s.lastVoteTs = now; s.countDay++; sessionBuckets.set(sid, s);
 
   next();
 }
-
 app.post('/api/vote', checkLimits, (req, res)=>{
   try{
     const { candidateId, pow } = req.body || {};
