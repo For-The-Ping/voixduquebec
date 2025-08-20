@@ -22,10 +22,6 @@ app.use(express.json());
 app.use(cookieParser(SESSION_SECRET));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
-// Servez Chart.js depuis node_modules (plus fiable que CDN/public file)
-const chartDist = path.dirname(require.resolve('chart.js/dist/chart.umd.js'));
-app.use('/vendor', express.static(chartDist));
-
 /* ---------- Persistance JSON ---------- */
 const DATA_FILE = path.join(__dirname, 'tallies.json');
 function loadData(){ try { return JSON.parse(fs.readFileSync(DATA_FILE,'utf-8')); } catch { return { votes:{} }; } }
