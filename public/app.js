@@ -97,6 +97,8 @@
     renderTable(data.results); drawPie(data);
   }
 
+  // ─────────────────────────────
+  // PoW utilitaires
   async function sha256Hex(s){ const b=new TextEncoder().encode(s); const d=await crypto.subtle.digest('SHA-256',b);
     return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
   function countLeadingZeroBitsFromHex(hex){ let bits=0; for(let i=0;i<hex.length;i++){ const n=parseInt(hex[i],16);
@@ -104,16 +106,52 @@
   async function solvePow(ch,bits){ let n=0; while(true){ const h=await sha256Hex(`${ch}:${n}`);
     if(countLeadingZeroBitsFromHex(h)>=bits) return n; n++; } }
 
+  // Anti‑replay: nonce helper
+  function makeNonce(){
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const a=new Uint8Array(16); crypto.getRandomValues(a);
+    return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+
+  // ─────────────────────────────
+  // Vote (modifié) : envoi nonce + ts (+ captcha si dispo)
   async function vote(ev){
-    ev.preventDefault(); const s=$$('input[name="candidate"]').find(x=>x.checked); const msg=$('#msg');
+    ev.preventDefault();
+    const s=$$('input[name="candidate"]').find(x=>x.checked);
+    const msg=$('#msg');
     if(!s){ msg.textContent='Sélectionnez un parti.'; return; }
+
     try{
       msg.textContent='Préparation (preuve de travail)…';
-      const {challenge,bits}=await fetchJSON('/api/pow'); const nonce=await solvePow(challenge,bits);
+      const {challenge,bits}=await fetchJSON('/api/pow');
+      const powNonce=await solvePow(challenge,bits);
+
+      // Anti‑replay
+      const nonce = makeNonce();
+      const ts = Date.now();
+
+      // Turnstile (si activé côté serveur et widget présent côté client)
+      let cfToken = null;
+      if (window.turnstile && typeof window.turnstile.getResponse === 'function') {
+        try { cfToken = window.turnstile.getResponse(); } catch {}
+      }
+
       msg.textContent='Envoi…';
-      await fetchJSON('/api/vote',{ method:'POST', body:JSON.stringify({ candidateId:Number(s.value), pow:{challenge,nonce} }) });
-      msg.textContent='Merci! Vote enregistré.'; await refresh();
-    }catch(e){ msg.textContent=e.message||'Erreur lors du vote.'; }
+      await fetchJSON('/api/vote', {
+        method:'POST',
+        body: JSON.stringify({
+          candidateId: Number(s.value),
+          pow: { challenge, nonce: powNonce },
+          nonce, ts,
+          ...(cfToken ? { cf_turnstile_response: cfToken } : {})
+        })
+      });
+
+      msg.textContent='Merci! Vote enregistré.';
+      await refresh();
+    }catch(e){
+      msg.textContent=e.message||'Erreur lors du vote.';
+    }
   }
 
   async function waitForChart(maxMs=3000){
@@ -130,35 +168,4 @@
       await refresh(); setInterval(refresh,30000);
     }catch(e){ console.error(e); const msg=$('#msg'); if(msg) msg.textContent=e.message; }
   });
-
-// public/app.js
-async function envoyerVote(candidateId, pow) {
-  const payload = {
-    candidateId,
-    pow, // ton objet { challenge, nonce }
-    nonce: (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)) + Date.now(),
-    ts: Date.now(),
-    // cf_turnstile_response: await turnstile.getResponse() // seulement si activé
-  };
-
-  const res = await fetch('/api/vote', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  const data = await res.json();
-  console.log('Réponse vote:', data);
-}
-
-document.getElementById('voteBtn').addEventListener('click', async (e) => {
-  const candidateId = Number(e.target.dataset.id);
-
-  // récupère ton challenge PoW
-  const powChallenge = await fetch('/api/pow').then(r=>r.json());
-  const pow = { challenge: powChallenge.challenge, nonce: 12345 }; 
-  // 👆 remplace par ton vrai calcul PoW
-
-  await envoyerVote(candidateId, pow);
-});
 })();
