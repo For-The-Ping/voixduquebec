@@ -95,7 +95,7 @@
     const cands=await fetchJSON('/api/candidates'); renderCandidates(cands);
     const data=await fetchJSON('/api/results'); data.results=data.results.map(r=>({...r,color:r.color||pickColor(r.name)}));
     renderTable(data.results); drawPie(data);
-    updateAuthStatus();
+    await updateAuthStatus(); // <-- garder l'appel
   }
 
   // === PoW utils ===
@@ -114,16 +114,46 @@
   }
 
   // === OAuth UI ===
+  // MOD: updateAuthStatus affiche le bon bouton + texte d'aide à côté des boutons.
   async function updateAuthStatus(){
     try{
       const me = await fetchJSON('/api/me');
+
+      // 1) Texte d’état "général" si tu le gardes dans le DOM
       const s = $('#auth-status');
-      if (!s) return;
-      if (me.authenticated) s.textContent = 'Connecté ✅';
-      else if (me.oauthRequired) s.textContent = 'Connexion requise pour voter';
-      else s.textContent = 'Connexion facultative';
-    }catch{}
+      if (s) {
+        if (me.authenticated) s.textContent = 'Connecté ✅';
+        else if (me.oauthRequired) s.textContent = 'Connexion requise pour voter';
+        else s.textContent = 'Connexion facultative';
+      }
+
+      // 2) Boutons + petit hint près des boutons (nouvelle disposition)
+      const loginBtn  = $('#login-google');
+      const logoutBtn = $('#logout-btn');
+      const hintEl    = document.querySelector('[data-auth-hint]');
+
+      if (loginBtn && logoutBtn) {
+        if (me.authenticated) {
+          loginBtn.style.display  = 'none';
+          logoutBtn.style.display = 'inline-flex';
+        } else {
+          loginBtn.style.display  = 'inline-flex';
+          logoutBtn.style.display = 'none';
+        }
+      }
+      if (hintEl) {
+        hintEl.textContent = me.authenticated
+          ? 'Vous êtes connecté. Vous pouvez voter.'
+          : 'Connexion requise pour voter';
+      }
+
+      return me;
+    }catch{
+      // En cas d’erreur /api/me, on ne casse pas l’UI
+      return { authenticated:false, oauthRequired:true };
+    }
   }
+
   async function logout(){
     await fetch('/auth/logout', { method:'POST' });
     await updateAuthStatus();
