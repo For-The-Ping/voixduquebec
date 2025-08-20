@@ -1,41 +1,60 @@
 /**
  * Voix du Québec — Sondage provincial
  * Express + PoW + anti-spam + persistance JSON (tallies.json)
- * Auth: OAuth (Google + Microsoft) pour 1 personne = 1 parti
+ * Auth: Google OAuth (Passport) pour 1 personne = 1 parti
  * Politique: REPLACE (on peut changer d'avis)
  */
+
 const express = require('express');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { DateTime } = require('luxon');
-const { Issuer, generators } = require('openid-client');
 
 /* ---------- Config ---------- */
 const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`; // ex: https://voix-du-quebec.onrender.com
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-session-secret';
-const SESSION_COOKIE = process.env.SESSION_COOKIE || 'v_sid';
+const SESSION_COOKIE = process.env.SESSION_COOKIE || 'v_sid'; // ton cookie de session léger
 const POW_BITS = Number(process.env.POW_BITS || 18);
 const TZ = process.env.TZ || 'America/Toronto';
 const DEMO = process.env.DEMO_MODE === '1';
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || ''; // optionnel
-const OAUTH_REQUIRED = process.env.OAUTH_REQUIRED === '1';       // exiger connexion pour voter
-const VOTE_POLICY = 'REPLACE'; // demandé
+const OAUTH_REQUIRED = process.env.OAUTH_REQUIRED === '1';
+const VOTE_POLICY = 'REPLACE';
 
-// Google
+// Google OAuth
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-// Microsoft (Azure AD v2 "common")
-const MS_CLIENT_ID = process.env.MS_CLIENT_ID || '';
-const MS_CLIENT_SECRET = process.env.MS_CLIENT_SECRET || '';
 
 /* ---------- App ---------- */
 const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '64kb' }));
 app.use(cookieParser(SESSION_SECRET));
+
+// Session pour Passport (cookie distinct 'connect.sid')
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  proxy: true,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: !!process.env.COOKIE_SECURE || /^https:\/\//.test(BASE_URL),
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 7 jours
+  }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 /* ---------- Persistance JSON ---------- */
@@ -58,8 +77,6 @@ for (const c of candidates) if (!DATA.votes[c.id]) DATA.votes[c.id] = 0;
 // 1 personne => 1 parti
 // voterChoices: { [voterId]: candidateId }
 if (!DATA.voterChoices) DATA.voterChoices = {};
-// lien session -> accountId OAuth (persisté pour éviter de revoter après restart)
-if (!DATA.voterAccountBySid) DATA.voterAccountBySid = {};
 saveData(DATA);
 
 /* ---------- Helpers ---------- */
@@ -71,24 +88,20 @@ function getClientIp(req){
   if (Array.isArray(ip)) ip = ip[0];
   return (ip || '0.0.0.0').toString();
 }
-function ensureSession(req,res){
+function ensureLightSession(req,res){
   let sid = req.signedCookies[SESSION_COOKIE];
   if (!sid){
     sid = crypto.randomBytes(16).toString('hex');
     res.cookie(SESSION_COOKIE, sid, {
-      httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE,
+      httpOnly:true, sameSite:'lax',
+      secure: !!process.env.COOKIE_SECURE || /^https:\/\//.test(BASE_URL),
       signed:true, maxAge: 1000*60*60*24*365
     });
   }
   return sid;
 }
-function getAccountIdForSid(sid){
-  return DATA.voterAccountBySid[sid] || null; // format: `${iss}|${sub}`
-}
-function getVoterId(req, sid){
-  const acct = getAccountIdForSid(sid);
-  if (acct) return `acct:${acct}`;
-  // fallback: session+UA (moins robuste si pas connecté)
+function getFallbackVoterId(req, sid){
+  // fallback si non connecté: session+UA hashée (moins robuste)
   const ua = (req.get('user-agent') || '').slice(0,256);
   return crypto.createHmac('sha256', SESSION_SECRET).update(`${sid}::${ua}`).digest('hex');
 }
@@ -111,8 +124,8 @@ function verifyPowPayload(pow, requiredBits = POW_BITS){
   return leadingZeroBitsHex(h) >= requiredBits;
 }
 function makeChallenge(req){
-  const sid = ensureSession(req, req.res);
-  return crypto.randomBytes(16).toString('hex') + ':' + sid;
+  const sid = ensureLightSession(req, req.res);
+  return crypto.randomBytes(16).toString('hex') + ':' + sid; // challenge lié à la session
 }
 
 /* ---------- Anti‑replay (nonce + ts) ---------- */
@@ -164,7 +177,7 @@ const IP_MAX_PER_DAY      = DEMO ? 5000  : 100;
 function checkLimits(req,res,next){
   const now = Date.now();
   const ip  = getClientIp(req);
-  const sid = ensureSession(req,res);
+  const sid = ensureLightSession(req,res);
 
   const ipEntry = ipBuckets.get(ip) || { windowStart: now, count10m:0, day: todayStr(), countDay:0 };
   if (now - ipEntry.windowStart > 10*60*1000){ ipEntry.windowStart = now; ipEntry.count10m = 0; }
@@ -185,111 +198,39 @@ function checkLimits(req,res,next){
   next();
 }
 
-/* ---------- OAuth Clients (Google + Microsoft) ---------- */
-let gClient = null, msClient = null;
-async function getClients(){
-  if (!gClient && GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET){
-    const gIssuer = await Issuer.discover('https://accounts.google.com');
-    gClient = new gIssuer.Client({
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uris: [`${BASE_URL}/auth/callback/google`],
-      response_types: ['code']
-    });
+/* ---------- Passport (Google) ---------- */
+passport.use(new GoogleStrategy(
+  {
+    clientID: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    callbackURL: `${BASE_URL}/auth/google/callback`
+  },
+  (accessToken, refreshToken, profile, done) => {
+    // profile.id = identifiant stable Google
+    // On ne stocke rien côté DB ici; la session suffit
+    return done(null, { id: profile.id, provider: 'google' });
   }
-  if (!msClient && MS_CLIENT_ID && MS_CLIENT_SECRET){
-    const msIssuer = await Issuer.discover('https://login.microsoftonline.com/common/v2.0');
-    msClient = new msIssuer.Client({
-      client_id: MS_CLIENT_ID,
-      client_secret: MS_CLIENT_SECRET,
-      redirect_uris: [`${BASE_URL}/auth/callback/microsoft`],
-      response_types: ['code']
-    });
-  }
-}
+));
+
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done)  => done(null, obj));
 
 /* ---------- Routes OAuth ---------- */
-app.get('/api/me', async (req,res)=>{
-  const sid = ensureSession(req,res);
-  const acct = getAccountIdForSid(sid);
-  res.json({ authenticated: !!acct, accountId: acct, oauthRequired: !!OAUTH_REQUIRED });
+app.get('/api/me', (req,res)=>{
+  res.json({ authenticated: !!req.user, accountId: req.user ? `google:${req.user.id}` : null, oauthRequired: !!OAUTH_REQUIRED });
 });
 
-app.get('/auth/google', async (req,res)=>{
-  await getClients();
-  if (!gClient) return res.status(500).send('Google OAuth non configuré.');
-  const state = generators.state();
-  const nonce = generators.nonce();
-  res.cookie('oauth_state', state, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
-  res.cookie('oauth_nonce', nonce, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
-  const url = gClient.authorizationUrl({
-    scope: 'openid email profile',
-    state, nonce
-  });
-  res.redirect(url);
-});
+app.get('/auth/google', passport.authenticate('google', { scope: ['openid', 'email', 'profile'] }));
 
-app.get('/auth/callback/google', async (req,res)=>{
-  try{
-    await getClients();
-    if (!gClient) return res.status(500).send('Google OAuth non configuré.');
-    const sid = ensureSession(req,res);
-    const state = req.signedCookies['oauth_state'];
-    const nonce = req.signedCookies['oauth_nonce'];
-    const params = gClient.callbackParams(req);
-    const tokenSet = await gClient.callback(`${BASE_URL}/auth/callback/google`, params, { state, nonce });
-    const claims = tokenSet.claims(); // sub, iss, email, etc.
-    const accountId = `${claims.iss}|${claims.sub}`;
-    DATA.voterAccountBySid[sid] = accountId;
-    saveData(DATA);
-    res.clearCookie('oauth_state'); res.clearCookie('oauth_nonce');
-    res.redirect('/');
-  }catch(e){
-    console.error('[OAuth Google]', e);
-    res.status(500).send('Erreur OAuth Google');
-  }
-});
-
-app.get('/auth/microsoft', async (req,res)=>{
-  await getClients();
-  if (!msClient) return res.status(500).send('Microsoft OAuth non configuré.');
-  const state = generators.state();
-  const nonce = generators.nonce();
-  res.cookie('oauth_state', state, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
-  res.cookie('oauth_nonce', nonce, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
-  const url = msClient.authorizationUrl({
-    scope: 'openid email profile offline_access',
-    state, nonce,
-  });
-  res.redirect(url);
-});
-
-app.get('/auth/callback/microsoft', async (req,res)=>{
-  try{
-    await getClients();
-    if (!msClient) return res.status(500).send('Microsoft OAuth non configuré.');
-    const sid = ensureSession(req,res);
-    const state = req.signedCookies['oauth_state'];
-    const nonce = req.signedCookies['oauth_nonce'];
-    const params = msClient.callbackParams(req);
-    const tokenSet = await msClient.callback(`${BASE_URL}/auth/callback/microsoft`, params, { state, nonce });
-    const claims = tokenSet.claims();
-    const accountId = `${claims.iss}|${claims.sub}`;
-    DATA.voterAccountBySid[sid] = accountId;
-    saveData(DATA);
-    res.clearCookie('oauth_state'); res.clearCookie('oauth_nonce');
-    res.redirect('/');
-  }catch(e){
-    console.error('[OAuth Microsoft]', e);
-    res.status(500).send('Erreur OAuth Microsoft');
-  }
-});
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req,res) => res.redirect('/')
+);
 
 app.post('/auth/logout', (req,res)=>{
-  const sid = ensureSession(req,res);
-  delete DATA.voterAccountBySid[sid];
-  saveData(DATA);
-  res.json({ ok:true });
+  req.logout(() => {
+    res.json({ ok:true });
+  });
 });
 
 /* ---------- API existantes ---------- */
@@ -299,7 +240,9 @@ app.get('/api/health', (req,res)=>{
     turnstile: !!TURNSTILE_SECRET, vote_policy: VOTE_POLICY, oauthRequired: !!OAUTH_REQUIRED
   });
 });
+
 app.get('/api/candidates', (req,res)=> res.json(candidates));
+
 app.get('/api/results', (req,res)=>{
   const total = Object.values(DATA.votes).reduce((a,b)=>a+b,0);
   const results = candidates.map(c=>{
@@ -312,6 +255,7 @@ app.get('/api/results', (req,res)=>{
   const leader   = leaders.length === 1 ? leaders[0] : null;
   res.json({ total, leader, isTie: leaders.length > 1, leaders, results });
 });
+
 app.get('/api/pow', (req,res)=> res.json({ challenge: makeChallenge(req), bits: POW_BITS }));
 
 // Ordre: quotas -> captcha -> anti-replay -> PoW -> OAuth requirement -> Politique REPLACE
@@ -322,12 +266,15 @@ app.post('/api/vote', checkLimits, verifyTurnstile, verifyReplay, (req,res)=>{
     if (!candidates.find(c => c.id === candidateId)) return res.status(404).json({ error:'Candidat inconnu' });
     if (!verifyPowPayload(pow)) return res.status(400).json({ error:'Preuve de travail invalide' });
 
-    const sid = ensureSession(req, res);
-    if (OAUTH_REQUIRED && !getAccountIdForSid(sid)) {
-      return res.status(403).json({ error:'Connectez-vous (Google/Microsoft) pour voter.' });
+    const sid = ensureLightSession(req, res);
+
+    // Exiger OAuth si demandé
+    if (OAUTH_REQUIRED && !req.user) {
+      return res.status(403).json({ error:'Connectez-vous avec Google pour voter.' });
     }
 
-    const voterId = getVoterId(req, sid); // acct:iss|sub si connecté, sinon session+UA
+    // Identité votant
+    const voterId = req.user ? `google:${req.user.id}` : getFallbackVoterId(req, sid);
     const prev = DATA.voterChoices[voterId];
 
     if (prev && prev !== candidateId) {
@@ -336,7 +283,7 @@ app.post('/api/vote', checkLimits, verifyTurnstile, verifyReplay, (req,res)=>{
       DATA.votes[candidateId] = (DATA.votes[candidateId] || 0) + 1;
       DATA.voterChoices[voterId] = candidateId;
       saveData(DATA);
-      console.log('[VOTE SWITCH]', { ip:getClientIp(req), from: prev, to: candidateId });
+      console.log('[VOTE SWITCH]', { ip:getClientIp(req), voterId, from: prev, to: candidateId });
       return res.json({ ok: true, switched: true });
     }
 
@@ -344,10 +291,11 @@ app.post('/api/vote', checkLimits, verifyTurnstile, verifyReplay, (req,res)=>{
       DATA.votes[candidateId] = (DATA.votes[candidateId] || 0) + 1;
       DATA.voterChoices[voterId] = candidateId;
       saveData(DATA);
-      console.log('[VOTE OK]', { ip:getClientIp(req), candidateId, total: DATA.votes[candidateId] });
+      console.log('[VOTE OK]', { ip:getClientIp(req), voterId, candidateId, total: DATA.votes[candidateId] });
       return res.json({ ok: true, first: true });
     }
 
+    // Revoter pour le même parti = no‑op
     return res.json({ ok: true, duplicate: true });
   }catch(e){
     console.error('[VOTE ERR]', e);
