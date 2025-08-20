@@ -1,3 +1,14 @@
+// Attend que Chart soit dispo (au cas où)
+async function waitForChart(maxMs = 3000) {
+  const t0 = performance.now();
+  while (typeof window.Chart === 'undefined') {
+    if (performance.now() - t0 > maxMs) {
+      throw new Error('Chart.js non chargé — vérifie <script src="/vendor/chart.umd.min.js"> dans index.html');
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+}
+
 // app.js — pie chart + étiquettes dans les parts + cases à cocher (1 choix)
 (() => {
   const $  = (s) => document.querySelector(s);
