@@ -34,31 +34,31 @@
     return r.json();
   }
 
-  function renderCandidates(list){
-    const wrap = $('#candidate-list'); wrap.innerHTML='';
-    list.forEach(c=>{
-      const color = c.color || pickColor(c.name);
-      const acro  = partyAcronym(c.name);
-      const chief = extractLeader(c.name);
-      const display = chief ? `${acro} — ${chief}` : acro;
+function renderCandidates(list){
+  const wrap = $('#candidate-list'); 
+  wrap.innerHTML='';
+  list.forEach(c=>{
+    const color = c.color || pickColor(c.name);
+    const label = document.createElement('label');
+    label.className='candidate';
 
-      const label = document.createElement('label');
-      label.className='candidate';
-      label.title = c.name; // tooltip avec le nom complet
-      label.innerHTML = `
-        <span class="dot" style="--dot:${color}"></span>
-        <input type="checkbox" name="candidate" value="${c.id}" />
-        <span class="cand-name">${display}</span>`;
-      wrap.appendChild(label);
-    });
+    // On affiche acronyme + chef
+    const acro = partyAcronym(c.name);
+    const leader = c.leader ? ` (${c.leader})` : '';
 
-    // garde le comportement "un seul choix" même si checkboxes
-    wrap.addEventListener('change', e=>{
-      if (e.target && e.target.name==='candidate' && e.target.checked){
-        $$( 'input[name="candidate"]' ).forEach(x=>{ if(x!==e.target) x.checked=false; });
-      }
-    });
-  }
+    label.innerHTML = `
+      <span class="dot" style="--dot:${color}"></span>
+      <input type="checkbox" name="candidate" value="${c.id}" />
+      <span class="cand-name">${acro}${leader}</span>`;
+    wrap.appendChild(label);
+  });
+
+  wrap.addEventListener('change', e=>{
+    if (e.target && e.target.name==='candidate' && e.target.checked){
+      $$( 'input[name="candidate"]' ).forEach(x=>{ if(x!==e.target) x.checked=false; });
+    }
+  });
+}
 
   function renderTable(res){
     const m=$('#results-table'); m.innerHTML='';
