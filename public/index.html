@@ -7,6 +7,10 @@
   <meta name="theme-color" content="#0B57D0" />
   <link rel="stylesheet" href="/styles.css" />
   <script defer src="/vendor/chart.umd.js"></script>
+
+  <!-- Turnstile (optionnel) -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
   <script defer src="/app.js"></script>
 </head>
 <body>
@@ -33,6 +37,13 @@
         <form id="vote-form" class="form">
           <div id="candidate-list" class="candidate-list"></div>
           <div class="push"></div>
+
+          <!-- Widget Turnstile (remplace SITE_KEY) -->
+          <div class="cf-turnstile"
+               data-sitekey="SITE_KEY"
+               data-theme="auto"
+               data-size="flexible"></div>
+
           <button type="submit" class="md-button md-button--filled ripple vote-btn">
             <span class="md-button__label">Voter</span>
           </button>
