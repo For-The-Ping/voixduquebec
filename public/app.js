@@ -3,13 +3,13 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   let chart;
 
-  // === CSS vars util (pour labels dessinés dans le canvas) ===================
+  // ===== CSS vars (pour les labels dessinés dans le canvas) =================
   const cssVar = (name, fb=null) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
   const PIE_LABEL_COLOR = () => cssVar('--pie-label-color', '#fff');
   const PIE_LABEL_SIZE  = () => parseFloat(cssVar('--pie-label-font-size', '16')) || 16;
 
-  // === Couleurs fallback =====================================================
+  // ===== Couleurs de partis (fallback) ======================================
   const PARTY_COLORS = [
     { test:/coalition avenir québec|caq/i,               color:'#0aa2c0' },
     { test:/parti québécois|pq|plamondon/i,              color:'#1b4db3' },
@@ -21,7 +21,7 @@
   const pickColor = (name, fb='#888') =>
     (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
 
-  // --- Anti‑replay + PoW utils ---
+  // ===== Anti‑replay + PoW utils ============================================
   async function sha256Hex(s){
     const b=new TextEncoder().encode(s);
     const d=await crypto.subtle.digest('SHA-256', b);
@@ -50,8 +50,7 @@
     return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
   }
 
-  
-  // === Acronyme + chef (pour la liste de vote à droite) =====================
+  // ===== ACRONYME + chef pour la liste de vote (droite) =====================
   const partyAcronym = (name) => {
     const map = [
       { re:/coalition avenir québec|caq/i, ac:'CAQ' }, { re:/parti québécois|pq/i, ac:'PQ' },
@@ -65,7 +64,7 @@
   };
   const extractLeader = (name) => (name.match(/\(([^)]+)\)/)?.[1] || '').trim();
 
-  // === Fetch JSON helper =====================================================
+  // ===== Fetch JSON helper (robuste) ========================================
   async function fetchJSON(url, opts={}){
     const r = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
     if (!r.ok){
@@ -76,7 +75,7 @@
     return r.json();
   }
 
-  // === Rendu de la liste de vote (droite) : "ACRONYME Chef" =================
+  // ===== Rendu liste de vote (droite) =======================================
   function renderCandidates(list){
     const wrap = $('#candidate-list'); if (!wrap) return;
     wrap.innerHTML='';
@@ -97,7 +96,7 @@
       wrap.appendChild(label);
     });
 
-    // Un seul choix même si checkboxes
+    // Un seul choix
     wrap.addEventListener('change', e=>{
       if (e.target && e.target.name==='candidate' && e.target.checked){
         $$('input[name="candidate"]').forEach(x=>{ if(x!==e.target) x.checked=false; });
@@ -105,7 +104,7 @@
     });
   }
 
-  // === Tableau des résultats (noms complets) ================================
+  // ===== Tableau des résultats (noms complets) ==============================
   function renderTable(res){
     const m=$('#results-table'); if (!m) return;
     m.innerHTML='';
@@ -119,7 +118,7 @@
     m.appendChild(t);
   }
 
-  // === Labels blancs au centre des parts ====================================
+  // ===== Labels blancs au centre des parts ==================================
   const sliceLabels = {
     id:'sliceLabels',
     afterDatasetsDraw(chart){
@@ -146,7 +145,7 @@
     }
   };
 
-  // === Légende HTML en 2 colonnes (3 lignes pour 6 partis) ==================
+  // ===== Légende HTML 2 colonnes (sous le chart) ============================
   function ensureLegendContainer(){
     let el = $('#chart-legend');
     if (!el){
@@ -158,7 +157,6 @@
     }
     return el;
   }
-
   const htmlLegendPlugin = {
     id: 'htmlLegend2Cols',
     afterUpdate(chart){
@@ -187,15 +185,13 @@
         li.appendChild(box);
         li.appendChild(txt);
 
-        // clic : masque/affiche la tranche
         li.onclick = () => { chart.toggleDataVisibility(item.index); chart.update(); };
-
         ul.appendChild(li);
       });
     }
   };
 
-  // === Camembert (légende canvas désactivée) ================================
+  // ===== Camembert ==========================================================
   function drawPie(data){
     const c=$('#chart'); if (!c) return;
     const labels=data.results.map(r=>r.name);           // légende = noms complets
@@ -216,7 +212,7 @@
     });
   }
 
-  // === Rafraîchissement global ==============================================
+  // ===== Refresh global =====================================================
   async function refresh(){
     const cands = await fetchJSON('/api/candidates');
     renderCandidates(cands);
@@ -229,7 +225,7 @@
     await updateAuthStatus();
   }
 
-  // === Auth UI ============================================================== 
+  // ===== Auth UI ============================================================
   async function updateAuthStatus(){
     try{
       const me = await fetchJSON('/api/me');
@@ -254,50 +250,58 @@
     await updateAuthStatus();
   }
 
-  // === Vote =================================================================
+  // ===== Vote (avec nonce/ts + PoW/Turnstile optionnels) ====================
   async function vote(ev){
-  ev.preventDefault();
-  const s = $$('input[name="candidate"]').find(x=>x.checked);
-  const msg = $('#msg');
-  if (!s) return;
+    ev.preventDefault();
+    const s=$$('input[name="candidate"]').find(x=>x.checked);
+    const msg=$('#msg');
+    if(!s) return;
 
-  try{
-    const me = await fetchJSON('/api/me');
-    if (me.oauthRequired && !me.authenticated) {
-      if (msg) msg.textContent = 'Connectez‑vous avec Google avant de voter.';
-      return;
-    }
-
-    // Payload requis par le backend
-    const payload = {
-      candidateId: Number(s.value),
-      nonce: makeNonce(),
-      ts: Date.now()
-    };
-
-    // PoW si disponible (sinon on ignore proprement)
     try{
-      const { challenge, bits } = await fetchJSON('/api/pow');
-      const powNonce = await solvePow(challenge, bits);
-      payload.pow = { challenge, nonce: powNonce };
-    }catch{ /* /api/pow non présent → c'est OK */ }
+      const me = await fetchJSON('/api/me');
+      if (me.oauthRequired && !me.authenticated) {
+        if (msg) msg.textContent = 'Connectez‑vous avec Google avant de voter.';
+        return;
+      }
 
-    // Turnstile si présent
-    if (window.turnstile && typeof window.turnstile.getResponse === 'function') {
-      try { payload.cf_turnstile_response = window.turnstile.getResponse(); } catch {}
+      const payload = {
+        candidateId: Number(s.value),
+        nonce: makeNonce(),
+        ts: Date.now()
+      };
+
+      // PoW si dispo
+      try{
+        const { challenge, bits } = await fetchJSON('/api/pow');
+        const powNonce = await solvePow(challenge, bits);
+        payload.pow = { challenge, nonce: powNonce };
+      }catch{/* pas de /api/pow → ignore */}
+
+      // Turnstile si présent
+      if (window.turnstile && typeof window.turnstile.getResponse === 'function') {
+        try { payload.cf_turnstile_response = window.turnstile.getResponse(); } catch {}
+      }
+
+      if (msg) msg.textContent='Envoi…';
+      await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
+
+      if (msg) msg.textContent='Merci! Vote enregistré.';
+      await refresh();
+    }catch(e){
+      if (msg) msg.textContent=e.message||'Erreur lors du vote.';
     }
-
-    if (msg) msg.textContent = 'Envoi…';
-    await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
-
-    if (msg) msg.textContent = 'Merci! Vote enregistré.';
-    await refresh();
-  }catch(e){
-    if (msg) msg.textContent = e.message || 'Erreur lors du vote.';
   }
-}
 
-  // === Ripple petit effet boutons auth ======================================
+  // ===== Attendre que Chart.js soit chargé ============================
+  async function waitForChart(maxMs=3000){
+    const t0=performance.now();
+    while(typeof window.Chart==='undefined'){
+      if(performance.now()-t0>maxMs) throw new Error('Chart.js non chargé — vérifie /vendor/chart.umd.js');
+      await new Promise(r=>setTimeout(r,50));
+    }
+  }
+
+  // ===== Petit effet ripple sur les boutons auth =============================
   function attachRipple(el){
     if (!el) return;
     el.addEventListener('click', () => {
@@ -307,12 +311,12 @@
     });
   }
 
-  // === Boot =================================================================
+  // ===== Boot ================================================================
   document.addEventListener('DOMContentLoaded', async ()=>{
     try{
       await waitForChart();
-      const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
 
+      const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
       const lg = $('#loginBtn');  if (lg) { lg.addEventListener('click', ()=> location.href='/auth/google'); attachRipple(lg); }
       const lo = $('#logoutBtn'); if (lo) { lo.addEventListener('click', logout);                             attachRipple(lo); }
 
