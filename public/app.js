@@ -3,6 +3,7 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   let chart;
 
+  // Couleurs fallback si le backend n'en renvoie pas
   const PARTY_COLORS = [
     { test:/coalition avenir québec|caq/i,               color:'#0aa2c0' },
     { test:/parti québécois|pq|plamondon/i,              color:'#1b4db3' },
@@ -12,6 +13,7 @@
     { test:/parti vert du québec|pvq/i,                  color:'#2e7d32' }
   ];
   const pickColor = (name, fb='#888') => (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
+
   const partyAcronym = (name) => {
     const map = [
       { re:/coalition avenir québec|caq/i, ac:'CAQ' }, { re:/parti québécois|pq/i, ac:'PQ' },
@@ -43,7 +45,7 @@
     });
     wrap.addEventListener('change', e=>{
       if (e.target && e.target.name==='candidate' && e.target.checked){
-        $$('input[name="candidate"]').forEach(x=>{ if(x!==e.target) x.checked=false; });
+        $$( 'input[name="candidate"]' ).forEach(x=>{ if(x!==e.target) x.checked=false; });
       }
     });
   }
@@ -60,6 +62,7 @@
     m.appendChild(t);
   }
 
+  // Plugin Chart.js : % + sigles
   const sliceLabels = {
     id:'sliceLabels',
     afterDatasetsDraw(chart){
@@ -92,10 +95,10 @@
     const cands=await fetchJSON('/api/candidates'); renderCandidates(cands);
     const data=await fetchJSON('/api/results'); data.results=data.results.map(r=>({...r,color:r.color||pickColor(r.name)}));
     renderTable(data.results); drawPie(data);
-    updateEmailStatus();
+    updateAuthStatus();
   }
 
-  // PoW utils
+  // === PoW utils ===
   async function sha256Hex(s){ const b=new TextEncoder().encode(s); const d=await crypto.subtle.digest('SHA-256',b);
     return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
   function countLeadingZeroBitsFromHex(hex){ let bits=0; for(let i=0;i<hex.length;i++){ const n=parseInt(hex[i],16);
@@ -103,54 +106,30 @@
   async function solvePow(ch,bits){ let n=0; while(true){ const h=await sha256Hex(`${ch}:${n}`);
     if(countLeadingZeroBitsFromHex(h)>=bits) return n; n++; } }
 
-  // Anti‑replay: nonce helper
+  // Anti‑replay: nonce
   function makeNonce(){
     if (crypto.randomUUID) return crypto.randomUUID();
     const a=new Uint8Array(16); crypto.getRandomValues(a);
     return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
   }
 
-  // Email OTP UI
-  async function updateEmailStatus(){
+  // === OAuth UI ===
+  async function updateAuthStatus(){
     try{
       const me = await fetchJSON('/api/me');
-      const status = $('#otp-status');
-      if (!status) return;
-      if (me.emailVerified) {
-        status.textContent = 'Courriel vérifié ✅';
-      } else if (me.emailRequired) {
-        status.textContent = 'Courriel requis pour voter';
-      } else {
-        status.textContent = 'Courriel non vérifié (facultatif)';
-      }
+      const s = $('#auth-status');
+      if (!s) return;
+      if (me.authenticated) s.textContent = 'Connecté ✅';
+      else if (me.oauthRequired) s.textContent = 'Connexion requise pour voter';
+      else s.textContent = 'Connexion facultative';
     }catch{}
   }
-
-  async function sendOtp(){
-    const email = $('#email').value.trim();
-    const status = $('#otp-status');
-    status.textContent = 'Envoi du code…';
-    try{
-      await fetchJSON('/api/otp/request', { method:'POST', body: JSON.stringify({ email }) });
-      status.textContent = 'Code envoyé. Vérifiez vos courriels.';
-    }catch(e){
-      status.textContent = e.message || 'Erreur envoi code';
-    }
-  }
-  async function verifyOtp(){
-    const email = $('#email').value.trim();
-    const code = $('#otp-code').value.trim();
-    const status = $('#otp-status');
-    status.textContent = 'Vérification…';
-    try{
-      await fetchJSON('/api/otp/verify', { method:'POST', body: JSON.stringify({ email, code }) });
-      status.textContent = 'Courriel vérifié ✅';
-    }catch(e){
-      status.textContent = e.message || 'Code invalide';
-    }
+  async function logout(){
+    await fetch('/auth/logout', { method:'POST' });
+    await updateAuthStatus();
   }
 
-  // Vote
+  // === Vote ===
   async function vote(ev){
     ev.preventDefault();
     const s=$$('input[name="candidate"]').find(x=>x.checked);
@@ -158,10 +137,10 @@
     if(!s){ msg.textContent='Sélectionnez un parti.'; return; }
 
     try{
-      // Optionnel: empêcher si email requis et pas vérifié (UX)
+      // UX : empêcher si OAuth requis et pas connecté
       const me = await fetchJSON('/api/me');
-      if (me.emailRequired && !me.emailVerified) {
-        msg.textContent = 'Vérifiez d’abord votre courriel (code OTP).';
+      if (me.oauthRequired && !me.authenticated) {
+        msg.textContent = 'Connectez‑vous avec Google avant de voter.';
         return;
       }
 
@@ -173,7 +152,7 @@
       const nonce = makeNonce();
       const ts = Date.now();
 
-      // Turnstile si dispo
+      // Turnstile si présent
       let cfToken = null;
       if (window.turnstile && typeof window.turnstile.getResponse === 'function') {
         try { cfToken = window.turnstile.getResponse(); } catch {}
@@ -204,26 +183,13 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', async function updateAuthStatus(){
-  try{
-    const me = await fetch('/api/me').then(r=>r.json());
-    const s = document.getElementById('auth-status');
-    if (!s) return;
-    if (me.authenticated) s.textContent = 'Connecté ✅';
-    else if (me.oauthRequired) s.textContent = 'Connexion requise pour voter';
-    else s.textContent = 'Connexion facultative';
-  }catch{}
-}
-
-async function logout(){
-  await fetch('/auth/logout', { method:'POST' });
-  await updateAuthStatus();
-}
-
-document.addEventListener('DOMContentLoaded', ()=>{
-  const lg = document.getElementById('logout-btn');
-  if (lg) lg.addEventListener('click', logout);
-  updateAuthStatus();
-});
-
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    try{
+      await waitForChart();
+      const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
+      const lg = $('#login-google'); if (lg) lg.addEventListener('click', ()=> location.href='/auth/google');
+      const lo = $('#logout-btn');  if (lo) lo.addEventListener('click', logout);
+      await refresh(); setInterval(refresh,30000);
+    }catch(e){ console.error(e); const msg=$('#msg'); if(msg) msg.textContent=e.message; }
+  });
 })();
