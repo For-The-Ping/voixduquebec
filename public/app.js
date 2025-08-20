@@ -3,7 +3,7 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   let chart;
 
-  // Couleurs fallback si le backend n'en renvoie pas
+  // ---- Couleurs fallback si le backend n'en renvoie pas
   const PARTY_COLORS = [
     { test:/coalition avenir québec|caq/i,               color:'#0aa2c0' },
     { test:/parti québécois|pq|plamondon/i,              color:'#1b4db3' },
@@ -12,8 +12,10 @@
     { test:/parti conservateur du québec|pcq|duhaime/i,  color:'#1d2e6e' },
     { test:/parti vert du québec|pvq/i,                  color:'#2e7d32' }
   ];
-  const pickColor = (name, fb='#888') => (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
+  const pickColor = (name, fb='#888') =>
+    (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
 
+  // ---- ACRONYME à partir du nom complet
   const partyAcronym = (name) => {
     const map = [
       { re:/coalition avenir québec|caq/i, ac:'CAQ' }, { re:/parti québécois|pq/i, ac:'PQ' },
@@ -21,46 +23,62 @@
       { re:/parti conservateur du québec|pcq/i, ac:'PCQ'}, { re:/parti vert du québec|pvq/i, ac:'PVQ' }
     ];
     const hit = map.find(m=>m.re.test(name)); if (hit) return hit.ac;
-    return name.replace(/[()]/g,'').split(/\s+/).filter(w=>w.length>=3&&!/^(de|du|des|la|le|les|et)$/i.test(w))
+    return name.replace(/[()]/g,'').split(/\s+/)
+      .filter(w=>w.length>=3&&!/^(de|du|des|la|le|les|et)$/i.test(w))
       .map(w=>w[0].toUpperCase()).slice(0,4).join('');
   };
 
- // Extrait "Nom du chef" si c.name contient "(Nom du chef)"
-const extractLeader = (name) => {
-  const m = name.match(/\(([^)]+)\)/);
-  return m ? m[1].trim() : '';
-};
+  // ---- Chef: on lit c.leader sinon on extrait le contenu entre parenthèses
+  const extractLeader = (name) => {
+    const m = name.match(/\(([^)]+)\)/);
+    return m ? m[1].trim() : '';
+  };
 
-function renderCandidates(list){
-  const wrap = $('#candidate-list');
-  wrap.innerHTML='';
-
-  list.forEach(c=>{
-    const color  = c.color || pickColor(c.name);
-    const acro   = partyAcronym(c.name);
-    const leader = (c.leader && c.leader.trim()) || extractLeader(c.name); // <- fallback sur ( ... )
-    const display = leader ? `${acro} ${leader}` : acro;
-
-    const label = document.createElement('label');
-    label.className='candidate';
-    label.title = c.name; // tooltip nom complet
-    label.innerHTML = `
-      <span class="dot" style="--dot:${color}"></span>
-      <input type="checkbox" name="candidate" value="${c.id}" />
-      <span class="cand-name">${display}</span>`;
-    wrap.appendChild(label);
-  });
-
-  // garde "un seul choix" même si checkboxes
-  wrap.addEventListener('change', e=>{
-    if (e.target && e.target.name==='candidate' && e.target.checked){
-      $$('input[name="candidate"]').forEach(x=>{ if(x!==e.target) x.checked=false; });
+  // ---- Fetch JSON helper
+  async function fetchJSON(url, opts={}){
+    const r = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+    if (!r.ok){
+      const t = await r.text();
+      try { throw new Error(JSON.parse(t).error || t); }
+      catch { throw new Error(t); }
     }
-  });
-}
+    return r.json();
+  }
 
+  // ---- Rendu liste candidats (à DROITE uniquement): "ACRONYME Chef"
+  function renderCandidates(list){
+    const wrap = $('#candidate-list'); 
+    if (!wrap) return;
+    wrap.innerHTML='';
+
+    list.forEach(c=>{
+      const color  = c.color || pickColor(c.name);
+      const acro   = partyAcronym(c.name);
+      const leader = (c.leader && c.leader.trim()) || extractLeader(c.name);
+      const display = leader ? `${acro} ${leader}` : acro;
+
+      const label = document.createElement('label');
+      label.className='candidate';
+      label.title = c.name; // tooltip nom complet
+      label.innerHTML = `
+        <span class="dot" style="--dot:${color}"></span>
+        <input type="checkbox" name="candidate" value="${c.id}" />
+        <span class="cand-name">${display}</span>`;
+      wrap.appendChild(label);
+    });
+
+    // Un seul choix même si ce sont des checkboxes
+    wrap.addEventListener('change', e=>{
+      if (e.target && e.target.name==='candidate' && e.target.checked){
+        $$('input[name="candidate"]').forEach(x=>{ if(x!==e.target) x.checked=false; });
+      }
+    });
+  }
+
+  // ---- Tableau résultats (garde le nom complet)
   function renderTable(res){
-    const m=$('#results-table'); m.innerHTML='';
+    const m=$('#results-table'); if (!m) return;
+    m.innerHTML='';
     const t=document.createElement('table'); t.className='table';
     t.innerHTML = `<thead><tr><th>Parti / Candidat</th><th>Votes</th><th>%</th></tr></thead>
       <tbody>${res.map(r=>`
@@ -71,42 +89,42 @@ function renderCandidates(list){
     m.appendChild(t);
   }
 
-  // Plugin Chart.js : % + sigles
-const sliceLabels = {
-  id:'sliceLabels',
-  afterDatasetsDraw(chart){
-    const {ctx}=chart, ds=chart.data.datasets[0];
-    if(!ds) return; 
-    const meta=chart.getDatasetMeta(0), total=ds.data.reduce((a,b)=>a+b,0)||0;
+  // ---- Plugin Chart.js : labels % + SIGLE en blanc et plus gros
+  const sliceLabels = {
+    id:'sliceLabels',
+    afterDatasetsDraw(chart){
+      const {ctx}=chart, ds=chart.data.datasets[0];
+      if(!ds) return; 
+      const meta=chart.getDatasetMeta(0), total=ds.data.reduce((a,b)=>a+b,0)||0;
 
-    ctx.save();
-    ctx.fillStyle='#fff';                 // texte blanc
-    ctx.textAlign='center'; 
-    ctx.textBaseline='middle';
-    ctx.font='700 16px ui-sans-serif,system-ui'; // plus gros
+      ctx.save();
+      ctx.fillStyle='#fff';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.font='700 16px ui-sans-serif,system-ui';
 
-    meta.data.forEach((arc,i)=>{
-      const v=Number(ds.data[i]||0); 
-      if(!v||!total) return; 
-      const pct=v/total*100; 
-      if(pct<3) return; // évite de polluer les toutes petites tranches
+      meta.data.forEach((arc,i)=>{
+        const v=Number(ds.data[i]||0); 
+        if(!v||!total) return; 
+        const pct=v/total*100; 
+        if(pct<3) return;
 
-      const {x,y,startAngle,endAngle,outerRadius}=arc;
-      const a=(startAngle+endAngle)/2;
-      const r=outerRadius*0.62;
-      ctx.fillText(
-        `${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`, 
-        x+Math.cos(a)*r, 
-        y+Math.sin(a)*r
-      );
-    });
-    ctx.restore();
-  }
-};
+        const {x,y,startAngle,endAngle,outerRadius}=arc;
+        const a=(startAngle+endAngle)/2;
+        const r=outerRadius*0.62;
+        ctx.fillText(`${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`,
+          x+Math.cos(a)*r, y+Math.sin(a)*r);
+      });
+      ctx.restore();
+    }
+  };
 
+  // ---- Camembert (légende = noms complets)
   function drawPie(data){
-    const c=$('#chart'); const labels=data.results.map(r=>r.name);
-    const values=data.results.map(r=>r.votes); const colors=data.results.map(r=>r.color||pickColor(r.name));
+    const c=$('#chart'); if (!c) return;
+    const labels=data.results.map(r=>r.name);
+    const values=data.results.map(r=>r.votes);
+    const colors=data.results.map(r=>r.color||pickColor(r.name));
     if(chart) chart.destroy();
     chart=new Chart(c.getContext('2d'),{
       type:'pie',
@@ -117,29 +135,50 @@ const sliceLabels = {
     const center=$('#center-label'); if(center) center.innerHTML='';
   }
 
+  // ---- Refresh global
   async function refresh(){
-    const cands=await fetchJSON('/api/candidates'); renderCandidates(cands);
-    const data=await fetchJSON('/api/results'); data.results=data.results.map(r=>({...r,color:r.color||pickColor(r.name)}));
-    renderTable(data.results); drawPie(data);
+    const cands = await fetchJSON('/api/candidates');
+    renderCandidates(cands);
+
+    const data = await fetchJSON('/api/results');
+    data.results = data.results.map(r=>({ ...r, color:r.color||pickColor(r.name) }));
+    renderTable(data.results);
+    drawPie(data);
+
     await updateAuthStatus();
   }
 
-  // === PoW utils ===
-  async function sha256Hex(s){ const b=new TextEncoder().encode(s); const d=await crypto.subtle.digest('SHA-256',b);
-    return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
-  function countLeadingZeroBitsFromHex(hex){ let bits=0; for(let i=0;i<hex.length;i++){ const n=parseInt(hex[i],16);
-    if(n===0){bits+=4;continue} for(let j=3;j>=0;j--){ if(((n>>j)&1)===0) bits++; else return bits } } return bits; }
-  async function solvePow(ch,bits){ let n=0; while(true){ const h=await sha256Hex(`${ch}:${n}`);
-    if(countLeadingZeroBitsFromHex(h)>=bits) return n; n++; } }
+  // ---- PoW utils
+  async function sha256Hex(s){
+    const b=new TextEncoder().encode(s);
+    const d=await crypto.subtle.digest('SHA-256',b);
+    return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  function countLeadingZeroBitsFromHex(hex){
+    let bits=0;
+    for(let i=0;i<hex.length;i++){
+      const n=parseInt(hex[i],16);
+      if(n===0){bits+=4;continue}
+      for(let j=3;j>=0;j--){ if(((n>>j)&1)===0) bits++; else return bits }
+    }
+    return bits;
+  }
+  async function solvePow(ch,bits){
+    let n=0; while(true){
+      const h=await sha256Hex(`${ch}:${n}`);
+      if(countLeadingZeroBitsFromHex(h)>=bits) return n;
+      n++;
+    }
+  }
 
-  // Anti‑replay: nonce
+  // ---- Anti‑replay: nonce
   function makeNonce(){
     if (crypto.randomUUID) return crypto.randomUUID();
     const a=new Uint8Array(16); crypto.getRandomValues(a);
     return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
   }
 
-  // Ripple util pour les boutons auth
+  // ---- Ripple pour boutons auth
   function attachRipple(el){
     if (!el) return;
     el.addEventListener('click', () => {
@@ -152,7 +191,7 @@ const sliceLabels = {
     });
   }
 
-  // === OAuth UI ===
+  // ---- OAuth UI
   async function updateAuthStatus(){
     try{
       const me = await fetchJSON('/api/me');
@@ -165,10 +204,9 @@ const sliceLabels = {
         else s.textContent = 'Connexion facultative';
       }
 
-      // Boutons (plus de hint)
+      // Boutons (pas de hint)
       const loginBtn  = $('#loginBtn');
       const logoutBtn = $('#logoutBtn');
-
       if (loginBtn && logoutBtn) {
         if (me.authenticated) {
           loginBtn.style.display  = 'none';
@@ -190,24 +228,24 @@ const sliceLabels = {
     await updateAuthStatus();
   }
 
-  // === Vote ===
+  // ---- Vote
   async function vote(ev){
     ev.preventDefault();
     const s=$$('input[name="candidate"]').find(x=>x.checked);
     const msg=$('#msg');
 
-    // On enlève le message "Sélectionnez un parti." demandé
-    if (!s) { return; }
+    // Pas de message "Sélectionnez un parti." → on ne fait rien
+    if(!s) return;
 
     try{
       // UX : empêcher si OAuth requis et pas connecté
       const me = await fetchJSON('/api/me');
       if (me.oauthRequired && !me.authenticated) {
-        msg.textContent = 'Connectez‑vous avec Google avant de voter.';
+        if (msg) msg.textContent = 'Connectez‑vous avec Google avant de voter.';
         return;
       }
 
-      msg.textContent='Préparation (preuve de travail)…';
+      if (msg) msg.textContent='Préparation (preuve de travail)…';
       const {challenge,bits}=await fetchJSON('/api/pow');
       const powNonce=await solvePow(challenge,bits);
 
@@ -221,7 +259,7 @@ const sliceLabels = {
         try { cfToken = window.turnstile.getResponse(); } catch {}
       }
 
-      msg.textContent='Envoi…';
+      if (msg) msg.textContent='Envoi…';
       await fetchJSON('/api/vote', {
         method:'POST',
         body: JSON.stringify({
@@ -232,38 +270,39 @@ const sliceLabels = {
         })
       });
 
-      msg.textContent='Merci! Vote enregistré (modifiable).';
+      if (msg) msg.textContent='Merci! Vote enregistré (modifiable).';
       await refresh();
     }catch(e){
-      msg.textContent=e.message||'Erreur lors du vote.';
+      if (msg) msg.textContent=e.message||'Erreur lors du vote.';
     }
   }
 
+  // ---- Attente Chart.js
   async function waitForChart(maxMs=3000){
-    const t0=performance.now(); while(typeof window.Chart==='undefined'){
+    const t0=performance.now();
+    while(typeof window.Chart==='undefined'){
       if(performance.now()-t0>maxMs) throw new Error('Chart.js non chargé — vérifie /vendor/chart.umd.js');
       await new Promise(r=>setTimeout(r,50));
     }
   }
 
+  // ---- Boot
   document.addEventListener('DOMContentLoaded', async ()=>{
     try{
       await waitForChart();
       const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
 
-      // Branchement correct sur les IDs HTML + ripple
+      // Branchement + ripple
       const lg = $('#loginBtn');
-      if (lg) {
-        lg.addEventListener('click', ()=> location.href='/auth/google');
-        attachRipple(lg);
-      }
+      if (lg) { lg.addEventListener('click', ()=> location.href='/auth/google'); attachRipple(lg); }
       const lo = $('#logoutBtn');
-      if (lo) {
-        lo.addEventListener('click', logout);
-        attachRipple(lo);
-      }
+      if (lo) { lo.addEventListener('click', logout); attachRipple(lo); }
 
-      await refresh(); setInterval(refresh,30000);
-    }catch(e){ console.error(e); const msg=$('#msg'); if(msg) msg.textContent=e.message; }
+      await refresh();
+      setInterval(refresh,30000);
+    }catch(e){
+      console.error(e);
+      const msg=$('#msg'); if(msg) msg.textContent=e.message;
+    }
   });
 })();
