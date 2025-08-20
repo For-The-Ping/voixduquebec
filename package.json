@@ -1,23 +1,17 @@
 {
   "name": "voix-du-quebec",
   "version": "1.0.0",
+  "private": true,
   "description": "Voix du Québec — sondage provincial (PoW + limites anti-spam)",
+  "type": "commonjs",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
-  },
-  "engines": { "node": ">=18" },
-  "dependencies": {
-    "chart.js": "^4.4.3",
-    "cookie-parser": "^1.4.6",
-    "express": "^4.19.2",
-    "luxon": "^3.4.4"
-  }
-{
-  "scripts": {
     "start": "node server.js",
-    "build": "mkdir -p public/vendor && cp node_modules/chart.js/dist/chart.umd.js public/vendor/chart.umd.js",
+    "build": "node -e \"const fs=require('fs'),path=require('path');const src=path.join('node_modules','chart.js','dist','chart.umd.js');const dstDir=path.join('public','vendor');fs.mkdirSync(dstDir,{recursive:true});fs.copyFileSync(src,path.join(dstDir,'chart.umd.js'));console.log('Copied',src,'->',path.join(dstDir,'chart.umd.js'));\"",
     "postinstall": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "chart.js": "^4.4.3",
