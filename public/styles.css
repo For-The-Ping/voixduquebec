@@ -1,13 +1,13 @@
 /* === Variables couleurs globales === */
 :root {
   --bg-0: #ffffff;
-  --bg-1: #f5f7fb;
-  --grid: #e5e9f0;
+  --bg-1: #f6f6f6;
+  --grid: #e0e0e0;
   --text: #222;
   --muted: #666;
-  --accent: #0b57d0;
-  --accent-hover: #0d66ff;
-  --accent-danger: #ff4d6d;
+  --accent: #444;           /* gris neutre */
+  --accent-hover: #000;     /* noir au survol */
+  --accent-danger: #cc0000; /* pour messages d'erreur */
   --card: #ffffff;
   --shadow: 0 4px 12px rgba(0,0,0,.08);
   --radius: 0.75rem;
@@ -18,19 +18,19 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
 
 /* === En-tête === */
 .md-appbar {
-  background: var(--accent);
-  color: #fff;
+  background: #fff;
+  color: var(--text);
   padding: 0.75rem 1.25rem;
-  box-shadow: var(--shadow);
+  border-bottom: 1px solid var(--grid);
 }
 .md-appbar__inner {
   display: flex; align-items: center; justify-content: space-between;
 }
 .md-brand { display: flex; align-items: center; gap: 0.75rem; }
-.qc-flag { height: 32px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+.qc-flag { height: 32px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
 .md-brand__text { display: flex; flex-direction: column; }
 .md-title { font-weight: 600; font-size: 1.25rem; }
-.md-subtitle { font-size: 0.9rem; opacity: 0.9; }
+.md-subtitle { font-size: 0.9rem; color: var(--muted); }
 
 /* === Layout === */
 .container { flex: 1; padding: 1.5rem; max-width: 1200px; margin: auto; }
@@ -100,7 +100,7 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
   padding: 0.6rem; text-align: left;
 }
 .table th { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
-.table tr:nth-child(even) { background: #f5f7fb; }
+.table tr:nth-child(even) { background: #f6f6f6; }
 
 /* === Expando === */
 .expando {
