@@ -25,35 +25,36 @@
       .map(w=>w[0].toUpperCase()).slice(0,4).join('');
   };
 
-  // extrait "Chef" si le nom contient "(Chef Nom)" ; sinon chaîne vide
-  const extractLeader = (name) => (name.match(/\(([^)]+)\)/)?.[1] || '').trim();
-
-  async function fetchJSON(url, opts={}){
-    const r = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
-    if (!r.ok){ const t=await r.text(); try{ throw new Error(JSON.parse(t).error||t) }catch{ throw new Error(t) } }
-    return r.json();
-  }
+ // Extrait "Nom du chef" si c.name contient "(Nom du chef)"
+const extractLeader = (name) => {
+  const m = name.match(/\(([^)]+)\)/);
+  return m ? m[1].trim() : '';
+};
 
 function renderCandidates(list){
-  const wrap = $('#candidate-list'); 
+  const wrap = $('#candidate-list');
   wrap.innerHTML='';
+
   list.forEach(c=>{
-    const color = c.color || pickColor(c.name);
+    const color  = c.color || pickColor(c.name);
     const acro   = partyAcronym(c.name);
-    const leader = c.leader || ''; // fourni par ton backend
+    const leader = (c.leader && c.leader.trim()) || extractLeader(c.name); // <- fallback sur ( ... )
+    const display = leader ? `${acro} ${leader}` : acro;
 
     const label = document.createElement('label');
     label.className='candidate';
+    label.title = c.name; // tooltip nom complet
     label.innerHTML = `
       <span class="dot" style="--dot:${color}"></span>
       <input type="checkbox" name="candidate" value="${c.id}" />
-      <span class="cand-name">${acro} ${leader}</span>`;
+      <span class="cand-name">${display}</span>`;
     wrap.appendChild(label);
   });
 
+  // garde "un seul choix" même si checkboxes
   wrap.addEventListener('change', e=>{
     if (e.target && e.target.name==='candidate' && e.target.checked){
-      $$( 'input[name="candidate"]' ).forEach(x=>{ if(x!==e.target) x.checked=false; });
+      $$('input[name="candidate"]').forEach(x=>{ if(x!==e.target) x.checked=false; });
     }
   });
 }
