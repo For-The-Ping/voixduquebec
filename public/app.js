@@ -3,7 +3,13 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   let chart;
 
-  // ===== Couleurs de partis (fallback) ======================================
+  // === CSS vars util (pour labels dessinés dans le canvas) ===================
+  const cssVar = (name, fb=null) =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
+  const PIE_LABEL_COLOR = () => cssVar('--pie-label-color', '#fff');
+  const PIE_LABEL_SIZE  = () => parseFloat(cssVar('--pie-label-font-size', '16')) || 16;
+
+  // === Couleurs fallback =====================================================
   const PARTY_COLORS = [
     { test:/coalition avenir québec|caq/i,               color:'#0aa2c0' },
     { test:/parti québécois|pq|plamondon/i,              color:'#1b4db3' },
@@ -15,7 +21,7 @@
   const pickColor = (name, fb='#888') =>
     (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
 
-  // ===== ACRONYME + Chef (pour la colonne de droite) ========================
+  // === Acronyme + chef (pour la liste de vote à droite) =====================
   const partyAcronym = (name) => {
     const map = [
       { re:/coalition avenir québec|caq/i, ac:'CAQ' }, { re:/parti québécois|pq/i, ac:'PQ' },
@@ -29,7 +35,7 @@
   };
   const extractLeader = (name) => (name.match(/\(([^)]+)\)/)?.[1] || '').trim();
 
-  // ===== Fetch helper ========================================================
+  // === Fetch JSON helper =====================================================
   async function fetchJSON(url, opts={}){
     const r = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
     if (!r.ok){
@@ -40,7 +46,7 @@
     return r.json();
   }
 
-  // ===== Liste de vote (à droite) : "ACRONYME Chef" =========================
+  // === Rendu de la liste de vote (droite) : "ACRONYME Chef" =================
   function renderCandidates(list){
     const wrap = $('#candidate-list'); if (!wrap) return;
     wrap.innerHTML='';
@@ -61,7 +67,7 @@
       wrap.appendChild(label);
     });
 
-    // un seul choix
+    // Un seul choix même si checkboxes
     wrap.addEventListener('change', e=>{
       if (e.target && e.target.name==='candidate' && e.target.checked){
         $$('input[name="candidate"]').forEach(x=>{ if(x!==e.target) x.checked=false; });
@@ -69,7 +75,7 @@
     });
   }
 
-  // ===== Tableau résultats (noms complets) ==================================
+  // === Tableau des résultats (noms complets) ================================
   function renderTable(res){
     const m=$('#results-table'); if (!m) return;
     m.innerHTML='';
@@ -83,7 +89,7 @@
     m.appendChild(t);
   }
 
-  // ===== Labels blancs au centre des parts (lisibles) =======================
+  // === Labels blancs au centre des parts ====================================
   const sliceLabels = {
     id:'sliceLabels',
     afterDatasetsDraw(chart){
@@ -92,10 +98,10 @@
       const meta=chart.getDatasetMeta(0), total=(ds.data||[]).reduce((a,b)=>a+Number(b||0),0)||0;
 
       ctx.save();
-      ctx.fillStyle='#fff';              // texte blanc
+      ctx.fillStyle=PIE_LABEL_COLOR();
       ctx.textAlign='center';
       ctx.textBaseline='middle';
-      ctx.font='700 16px ui-sans-serif,system-ui'; // plus gros
+      ctx.font=`700 ${PIE_LABEL_SIZE()}px ui-sans-serif,system-ui`;
 
       meta.data.forEach((arc,i)=>{
         const v=Number(ds.data[i]||0); if(!v||!total) return;
@@ -110,18 +116,13 @@
     }
   };
 
-  // ===== Légende HTML en 2 colonnes =========================================
-  // On crée un conteneur sous le canvas et on y génère la légende (2 colonnes).
+  // === Légende HTML en 2 colonnes (3 lignes pour 6 partis) ==================
   function ensureLegendContainer(){
     let el = $('#chart-legend');
     if (!el){
       el = document.createElement('div');
       el.id = 'chart-legend';
-      el.style.marginTop = '12px';
-      el.style.display   = 'grid';
-      el.style.gridTemplateColumns = '1fr 1fr'; // 2 colonnes
-      el.style.gap = '8px 24px';
-      el.style.justifyItems = 'start';
+      el.className = 'chart-legend';
       const card = $('.chart-card') || $('#chart')?.parentElement;
       if (card) card.appendChild(el);
     }
@@ -130,64 +131,41 @@
 
   const htmlLegendPlugin = {
     id: 'htmlLegend2Cols',
-    afterUpdate(chart, args, opts){
+    afterUpdate(chart){
       const container = ensureLegendContainer();
-      // reset
       container.innerHTML = '';
 
       const items = chart.options.plugins.legend.labels.generateLabels(chart);
-      // 2 colonnes : on fabrique 2 <ul>, on répartit 3/3
       const mid = Math.ceil(items.length / 2);
-      const cols = [document.createElement('ul'), document.createElement('ul')];
-      cols.forEach(ul => {
-        ul.style.listStyle = 'none';
-        ul.style.margin = '0';
-        ul.style.padding = '0';
-        ul.style.display = 'flex';
-        ul.style.flexDirection = 'column';
-        container.appendChild(ul);
-      });
+
+      const colLeft  = document.createElement('ul');
+      const colRight = document.createElement('ul');
+      container.appendChild(colLeft);
+      container.appendChild(colRight);
 
       items.forEach((item, i) => {
-        const ul = i < mid ? cols[0] : cols[1];
-        const li = document.createElement('li');
-        li.style.cursor = 'pointer';
-        li.style.display = 'flex';
-        li.style.alignItems = 'center';
-        li.style.gap = '8px';
-        li.style.fontSize = '16px'; // taille de police de la légende
-        // swatch
+        const ul = i < mid ? colLeft : colRight;
+
+        const li  = document.createElement('li');
         const box = document.createElement('span');
-        box.style.display = 'inline-block';
-        box.style.width = '22px';
-        box.style.height = '10px';
-        box.style.borderRadius = '2px';
+        box.className = 'swatch';
         box.style.background = item.fillStyle;
-        box.style.border = '1px solid rgba(0,0,0,.15)';
-        // label
+
         const txt = document.createElement('span');
         txt.textContent = item.text;
 
         li.appendChild(box);
         li.appendChild(txt);
 
-        // clic pour masquer/afficher une série (utile si plusieurs datasets)
-        li.onclick = () => {
-          const { type } = chart.config;
-          if (type === 'pie' || type === 'doughnut') {
-            chart.toggleDataVisibility(item.index);
-          } else {
-            chart.setDatasetVisibility(item.datasetIndex, !chart.isDatasetVisible(item.datasetIndex));
-          }
-          chart.update();
-        };
+        // clic : masque/affiche la tranche
+        li.onclick = () => { chart.toggleDataVisibility(item.index); chart.update(); };
 
         ul.appendChild(li);
       });
     }
   };
 
-  // ===== Camembert ===========================================================
+  // === Camembert (légende canvas désactivée) ================================
   function drawPie(data){
     const c=$('#chart'); if (!c) return;
     const labels=data.results.map(r=>r.name);           // légende = noms complets
@@ -195,8 +173,6 @@
     const colors=data.results.map(r=>r.color||pickColor(r.name));
 
     if(chart) chart.destroy();
-
-    // s'assure que le conteneur de légende existe
     ensureLegendContainer();
 
     chart=new Chart(c.getContext('2d'),{
@@ -204,16 +180,13 @@
       data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:0 }] },
       options:{ 
         responsive:true,
-        plugins:{ 
-          legend:{ display:false },   // on cache la légende canvas
-          tooltip:{enabled:true}
-        }
+        plugins:{ legend:{ display:false }, tooltip:{enabled:true} }
       },
       plugins:[sliceLabels, htmlLegendPlugin]
     });
   }
 
-  // ===== Refresh global ======================================================
+  // === Rafraîchissement global ==============================================
   async function refresh(){
     const cands = await fetchJSON('/api/candidates');
     renderCandidates(cands);
@@ -226,7 +199,7 @@
     await updateAuthStatus();
   }
 
-  // ===== Auth UI =============================================================
+  // === Auth UI ============================================================== 
   async function updateAuthStatus(){
     try{
       const me = await fetchJSON('/api/me');
@@ -251,7 +224,7 @@
     await updateAuthStatus();
   }
 
-  // ===== Vote ================================================================
+  // === Vote =================================================================
   async function vote(ev){
     ev.preventDefault();
     const s=$$('input[name="candidate"]').find(x=>x.checked);
@@ -266,10 +239,7 @@
       }
 
       if (msg) msg.textContent='Envoi…';
-      await fetchJSON('/api/vote', {
-        method:'POST',
-        body: JSON.stringify({ candidateId: Number(s.value) })
-      });
+      await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify({ candidateId:Number(s.value) }) });
 
       if (msg) msg.textContent='Merci! Vote enregistré.';
       await refresh();
@@ -278,7 +248,7 @@
     }
   }
 
-  // ===== Attendre Chart.js ===================================================
+  // === Attente Chart.js =====================================================
   async function waitForChart(maxMs=3000){
     const t0=performance.now();
     while(typeof window.Chart==='undefined'){
@@ -287,14 +257,24 @@
     }
   }
 
-  // ===== Boot ================================================================
+  // === Ripple petit effet boutons auth ======================================
+  function attachRipple(el){
+    if (!el) return;
+    el.addEventListener('click', () => {
+      el.classList.remove('is-rippling'); el.offsetWidth; // reflow
+      el.classList.add('is-rippling');
+      setTimeout(()=> el.classList.remove('is-rippling'), 500);
+    });
+  }
+
+  // === Boot =================================================================
   document.addEventListener('DOMContentLoaded', async ()=>{
     try{
       await waitForChart();
-
       const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
-      const lg = $('#loginBtn');  if (lg) lg.addEventListener('click', ()=> location.href='/auth/google');
-      const lo = $('#logoutBtn'); if (lo) lo.addEventListener('click', logout);
+
+      const lg = $('#loginBtn');  if (lg) { lg.addEventListener('click', ()=> location.href='/auth/google'); attachRipple(lg); }
+      const lo = $('#logoutBtn'); if (lo) { lo.addEventListener('click', logout);                             attachRipple(lo); }
 
       await refresh();
       setInterval(refresh,30000);
