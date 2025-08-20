@@ -13,20 +13,19 @@
   --radius: 1rem;
 }
 
-/* === Reset === */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; font-family: system-ui, sans-serif; }
 body {
-  background: radial-gradient(1200px 800px at 70% -10%,#1a2744 0%,#0c1425 50%, var(--bg-0) 100%);
-  color: var(--text);
-  line-height: 1.5;
-  display: flex; flex-direction: column;
+  background: #ffffff;
+  color: #222;
+  font-family: system-ui, sans-serif;
+  margin: 0;
 }
 
-/* === Header === */
+/* En-tête */
 .md-appbar {
-  background: var(--bg-1);
-  color: var(--text);
+  background: #0B57D0; /* bleu principal */
+  color: #fff;
   padding: 0.5rem 1rem;
   box-shadow: var(--shadow);
 }
