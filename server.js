@@ -1,6 +1,7 @@
 /**
  * Voix du Québec — Sondage provincial
  * Express + PoW + limites anti-spam + persistance JSON (tallies.json)
+ * + Anti‑replay (nonce/ts) + Turnstile (optionnel)
  */
 const express = require('express');
 const cookieParser = require('cookie-parser');
@@ -15,10 +16,11 @@ const SESSION_COOKIE = process.env.SESSION_COOKIE || 'v_sid';
 const POW_BITS = Number(process.env.POW_BITS || 18);
 const TZ = process.env.TZ || 'America/Toronto';
 const DEMO = process.env.DEMO_MODE === '1';
+const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || ''; // laisser vide si pas utilisé
 
 const app = express();
 app.set('trust proxy', true);
-app.use(express.json());
+app.use(express.json({ limit: '64kb' }));
 app.use(cookieParser(SESSION_SECRET));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
@@ -43,10 +45,11 @@ saveData(DATA);
 /* ---------- Helpers ---------- */
 function todayStr(){ return DateTime.now().setZone(TZ).toISODate(); }
 function getClientIp(req){
-  let ip = req.ip || '';
-  if (ip.includes(',')) ip = ip.split(',')[0].trim();
-  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
-  return ip || '0.0.0.0';
+  let ip = req.headers['x-forwarded-for'] || req.ip || '';
+  if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0].trim();
+  if (typeof ip === 'string' && ip.startsWith('::ffff:')) ip = ip.slice(7);
+  if (Array.isArray(ip)) ip = ip[0];
+  return (ip || '0.0.0.0').toString();
 }
 function ensureSession(req,res){
   let sid = req.signedCookies[SESSION_COOKIE];
@@ -82,10 +85,60 @@ function makeChallenge(req){
   return crypto.randomBytes(16).toString('hex') + ':' + sid; // challenge lié à la session
 }
 
-/* ---------- Limites anti‑spam ---------- */
+/* ---------- Anti‑replay (nonce + ts) ---------- */
+const REPLAY_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
+const nonces = new Map(); // key: `${day}:${election?}:${nonce}` -> expiryMs (purge simple)
+
+function verifyReplay(req,res,next){
+  const { nonce, ts } = req.body || {};
+  if (!nonce || !ts) return res.status(400).json({ error:'Requête invalide (nonce/ts manquant)' });
+  const now = Date.now();
+  const skew = Math.abs(now - Number(ts));
+  if (!Number.isFinite(skew) || skew > REPLAY_WINDOW_MS){
+    return res.status(400).json({ error:'Horodatage expiré' });
+  }
+  // purge légère
+  for (const [k, exp] of nonces){
+    if (exp <= now) nonces.delete(k);
+  }
+  const key = `${todayStr()}:${nonce}`;
+  if (nonces.has(key)) return res.status(409).json({ error:'Rejeu détecté' });
+  nonces.set(key, now + REPLAY_WINDOW_MS);
+  next();
+}
+
+/* ---------- Turnstile (optionnel) ---------- */
+async function verifyTurnstile(req,res,next){
+  try{
+    if (!TURNSTILE_SECRET){
+      // Pas configuré -> on ne bloque pas (no‑op)
+      return next();
+    }
+    const token = req.body?.cf_turnstile_response;
+    if (!token) return res.status(400).json({ error:'Captcha requis' });
+
+    const form = new URLSearchParams();
+    form.append('secret', TURNSTILE_SECRET);
+    form.append('response', token);
+    form.append('remoteip', getClientIp(req));
+
+    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method:'POST',
+      body: form
+    });
+    const data = await r.json();
+    if (!data.success) return res.status(403).json({ error:'Captcha invalide', details:data['error-codes']||null });
+    next();
+  }catch(e){
+    console.error('[Turnstile ERR]', e);
+    return res.status(500).json({ error:'Erreur vérification captcha' });
+  }
+}
+
+/* ---------- Limites anti‑spam (IP & session) ---------- */
 const ipBuckets = new Map();      // ip -> {windowStart,count10m,day,countDay}
 const sessionBuckets = new Map(); // sid -> {lastVoteTs,day,countDay}
-const MIN_INTERVAL_MS     = DEMO ? 3000  : 60000;
+const MIN_INTERVAL_MS     = DEMO ? 3000  : 60000; // 1 min par session (3s en DEMO)
 const SESSION_MAX_PER_DAY = DEMO ? 1000  : 10;
 const IP_MAX_10MIN        = DEMO ? 1000  : 5;
 const IP_MAX_PER_DAY      = DEMO ? 5000  : 100;
@@ -118,9 +171,11 @@ function checkLimits(req,res,next){
 
 /* ---------- Routes API ---------- */
 app.get('/api/health', (req,res)=>{
-  res.json({ ok:true, pow_bits: POW_BITS, today: todayStr(), demo: DEMO });
+  res.json({ ok:true, pow_bits: POW_BITS, today: todayStr(), demo: DEMO, turnstile: !!TURNSTILE_SECRET });
 });
+
 app.get('/api/candidates', (req,res)=> res.json(candidates));
+
 app.get('/api/results', (req,res)=>{
   const total = Object.values(DATA.votes).reduce((a,b)=>a+b,0);
   const results = candidates.map(c=>{
@@ -133,15 +188,20 @@ app.get('/api/results', (req,res)=>{
   const leader   = leaders.length === 1 ? leaders[0] : null;
   res.json({ total, leader, isTie: leaders.length > 1, leaders, results });
 });
+
 app.get('/api/pow', (req,res)=> res.json({ challenge: makeChallenge(req), bits: POW_BITS }));
-app.post('/api/vote', checkLimits, (req,res)=>{
+
+// IMPORTANT: ordre des protections = limites IP/session -> Turnstile -> anti‑replay -> PoW
+app.post('/api/vote', checkLimits, verifyTurnstile, verifyReplay, (req,res)=>{
   try{
     const { candidateId, pow } = req.body || {};
     if (!Number.isInteger(candidateId)) return res.status(400).json({ error:'candidateId invalide' });
     if (!candidates.find(c => c.id === candidateId)) return res.status(404).json({ error:'Candidat inconnu' });
     if (!verifyPowPayload(pow)) return res.status(400).json({ error:'Preuve de travail invalide' });
+
     DATA.votes[candidateId] = (DATA.votes[candidateId] || 0) + 1;
     saveData(DATA);
+
     console.log('[VOTE OK]', { ip:getClientIp(req), candidateId, total: DATA.votes[candidateId] });
     res.json({ ok:true });
   }catch(e){
