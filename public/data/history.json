@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "note": "Pour compléter, éditer ce fichier. Les pourcentages sont exprimés en % des votes valides.",
+    "updated": "2025-08-19"
+  },
+  "parties": [
+    { "id": "caq", "name": "Coalition Avenir Québec", "color": "#0aa2c0" },
+    { "id": "pq",  "name": "Parti Québécois",         "color": "#1b4db3" },
+    { "id": "plq", "name": "Parti libéral du Québec", "color": "#d32f2f" },
+    { "id": "qs",  "name": "Québec solidaire",        "color": "#f36f21" },
+    { "id": "pcq", "name": "Parti conservateur du Québec", "color": "#1d2e6e" },
+    { "id": "pvq", "name": "Parti Vert du Québec",    "color": "#2e7d32" }
+  ],
+  "years": {
+    "2022": {"results": { "caq": 41.0, "pq": 14.6, "plq": 14.4, "qs": 15.4, "pcq": 12.9, "pvq": 0.7 }
+    },
+    "2018": {"results": { "caq": 37.4, "plq": 24.8, "pq": 17.1, "qs": 16.1, "pcq": 1.5,  "pvq": 1.7 }
+    },
+    "2014": { "results": { "plq": 41.5, "pq": 25.4, "caq": 23.1, "qs": 7.6, "pvq": 0.5 } 
+    },
+    }
+  }
+}
