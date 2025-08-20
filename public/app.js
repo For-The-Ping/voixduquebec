@@ -73,20 +73,37 @@
   }
 
   // Plugin Chart.js : % + sigles
-  const sliceLabels = {
-    id:'sliceLabels',
-    afterDatasetsDraw(chart){
-      const {ctx}=chart, ds=chart.data.datasets[0];
-      if(!ds) return; const meta=chart.getDatasetMeta(0), total=ds.data.reduce((a,b)=>a+b,0)||0;
-      ctx.save(); ctx.fillStyle='#0b1220'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      meta.data.forEach((arc,i)=>{
-        const v=Number(ds.data[i]||0); if(!v||!total) return; const pct=v/total*100; if(pct<3) return;
-        const {x,y,startAngle,endAngle,outerRadius}=arc; const a=(startAngle+endAngle)/2; const r=outerRadius*0.62;
-        ctx.font='700 12px ui-sans-serif,system-ui';
-        ctx.fillText(`${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`, x+Math.cos(a)*r, y+Math.sin(a)*r);
-      }); ctx.restore();
-    }
-  };
+const sliceLabels = {
+  id:'sliceLabels',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart, ds=chart.data.datasets[0];
+    if(!ds) return; 
+    const meta=chart.getDatasetMeta(0), total=ds.data.reduce((a,b)=>a+b,0)||0;
+
+    ctx.save();
+    ctx.fillStyle='#fff';                 // texte blanc
+    ctx.textAlign='center'; 
+    ctx.textBaseline='middle';
+    ctx.font='700 16px ui-sans-serif,system-ui'; // plus gros
+
+    meta.data.forEach((arc,i)=>{
+      const v=Number(ds.data[i]||0); 
+      if(!v||!total) return; 
+      const pct=v/total*100; 
+      if(pct<3) return; // évite de polluer les toutes petites tranches
+
+      const {x,y,startAngle,endAngle,outerRadius}=arc;
+      const a=(startAngle+endAngle)/2;
+      const r=outerRadius*0.62;
+      ctx.fillText(
+        `${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`, 
+        x+Math.cos(a)*r, 
+        y+Math.sin(a)*r
+      );
+    });
+    ctx.restore();
+  }
+};
 
   function drawPie(data){
     const c=$('#chart'); const labels=data.results.map(r=>r.name);
