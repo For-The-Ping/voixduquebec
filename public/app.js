@@ -204,13 +204,26 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', async ()=>{
-    try{
-      await waitForChart();
-      const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
-      const bSend = $('#otp-send');  if (bSend)  bSend.addEventListener('click', sendOtp);
-      const bVer  = $('#otp-verify');if (bVer)   bVer.addEventListener('click', verifyOtp);
-      await refresh(); setInterval(refresh,30000);
-    }catch(e){ console.error(e); const msg=$('#msg'); if(msg) msg.textContent=e.message; }
-  });
+  document.addEventListener('DOMContentLoaded', async function updateAuthStatus(){
+  try{
+    const me = await fetch('/api/me').then(r=>r.json());
+    const s = document.getElementById('auth-status');
+    if (!s) return;
+    if (me.authenticated) s.textContent = 'Connecté ✅';
+    else if (me.oauthRequired) s.textContent = 'Connexion requise pour voter';
+    else s.textContent = 'Connexion facultative';
+  }catch{}
+}
+
+async function logout(){
+  await fetch('/auth/logout', { method:'POST' });
+  await updateAuthStatus();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const lg = document.getElementById('logout-btn');
+  if (lg) lg.addEventListener('click', logout);
+  updateAuthStatus();
+});
+
 })();
