@@ -95,7 +95,7 @@
     const cands=await fetchJSON('/api/candidates'); renderCandidates(cands);
     const data=await fetchJSON('/api/results'); data.results=data.results.map(r=>({...r,color:r.color||pickColor(r.name)}));
     renderTable(data.results); drawPie(data);
-    await updateAuthStatus(); // <-- garder l'appel
+    await updateAuthStatus();
   }
 
   // === PoW utils ===
@@ -114,12 +114,11 @@
   }
 
   // === OAuth UI ===
-  // MOD: updateAuthStatus affiche le bon bouton + texte d'aide à côté des boutons.
   async function updateAuthStatus(){
     try{
       const me = await fetchJSON('/api/me');
 
-      // 1) Texte d’état "général" si tu le gardes dans le DOM
+      // Texte d’état global (si présent)
       const s = $('#auth-status');
       if (s) {
         if (me.authenticated) s.textContent = 'Connecté ✅';
@@ -127,9 +126,9 @@
         else s.textContent = 'Connexion facultative';
       }
 
-      // 2) Boutons + petit hint près des boutons (nouvelle disposition)
-      const loginBtn  = $('#login-google');
-      const logoutBtn = $('#logout-btn');
+      // Boutons + petit hint près des boutons
+      const loginBtn  = $('#loginBtn');   // <-- IDs HTML
+      const logoutBtn = $('#logoutBtn');
       const hintEl    = document.querySelector('[data-auth-hint]');
 
       if (loginBtn && logoutBtn) {
@@ -149,7 +148,6 @@
 
       return me;
     }catch{
-      // En cas d’erreur /api/me, on ne casse pas l’UI
       return { authenticated:false, oauthRequired:true };
     }
   }
@@ -217,8 +215,11 @@
     try{
       await waitForChart();
       const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
-      const lg = $('#login-google'); if (lg) lg.addEventListener('click', ()=> location.href='/auth/google');
-      const lo = $('#logout-btn');  if (lo) lo.addEventListener('click', logout);
+
+      // Branchement correct sur les IDs HTML
+      const lg = $('#loginBtn');  if (lg) lg.addEventListener('click', ()=> location.href='/auth/google');
+      const lo = $('#logoutBtn'); if (lo) lo.addEventListener('click', logout);
+
       await refresh(); setInterval(refresh,30000);
     }catch(e){ console.error(e); const msg=$('#msg'); if(msg) msg.textContent=e.message; }
   });
