@@ -25,6 +25,9 @@
       .map(w=>w[0].toUpperCase()).slice(0,4).join('');
   };
 
+  // extrait "Chef" si le nom contient "(Chef Nom)" ; sinon chaîne vide
+  const extractLeader = (name) => (name.match(/\(([^)]+)\)/)?.[1] || '').trim();
+
   async function fetchJSON(url, opts={}){
     const r = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
     if (!r.ok){ const t=await r.text(); try{ throw new Error(JSON.parse(t).error||t) }catch{ throw new Error(t) } }
@@ -35,14 +38,21 @@
     const wrap = $('#candidate-list'); wrap.innerHTML='';
     list.forEach(c=>{
       const color = c.color || pickColor(c.name);
+      const acro  = partyAcronym(c.name);
+      const chief = extractLeader(c.name);
+      const display = chief ? `${acro} — ${chief}` : acro;
+
       const label = document.createElement('label');
       label.className='candidate';
+      label.title = c.name; // tooltip avec le nom complet
       label.innerHTML = `
         <span class="dot" style="--dot:${color}"></span>
         <input type="checkbox" name="candidate" value="${c.id}" />
-        <span class="cand-name">${c.name}</span>`;
+        <span class="cand-name">${display}</span>`;
       wrap.appendChild(label);
     });
+
+    // garde le comportement "un seul choix" même si checkboxes
     wrap.addEventListener('change', e=>{
       if (e.target && e.target.name==='candidate' && e.target.checked){
         $$( 'input[name="candidate"]' ).forEach(x=>{ if(x!==e.target) x.checked=false; });
@@ -113,7 +123,7 @@
     return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
   }
 
-  // === Ripple util pour les boutons auth ===
+  // Ripple util pour les boutons auth
   function attachRipple(el){
     if (!el) return;
     el.addEventListener('click', () => {
@@ -139,10 +149,9 @@
         else s.textContent = 'Connexion facultative';
       }
 
-      // Boutons + petit hint près des boutons
-      const loginBtn  = $('#loginBtn');   // IDs HTML
+      // Boutons (plus de hint)
+      const loginBtn  = $('#loginBtn');
       const logoutBtn = $('#logoutBtn');
-      const hintEl    = document.querySelector('[data-auth-hint]');
 
       if (loginBtn && logoutBtn) {
         if (me.authenticated) {
@@ -152,11 +161,6 @@
           loginBtn.style.display  = 'inline-flex';
           logoutBtn.style.display = 'none';
         }
-      }
-      if (hintEl) {
-        hintEl.textContent = me.authenticated
-          ? 'Vous êtes connecté. Vous pouvez voter.'
-          : 'Connexion requise pour voter';
       }
 
       return me;
@@ -175,7 +179,9 @@
     ev.preventDefault();
     const s=$$('input[name="candidate"]').find(x=>x.checked);
     const msg=$('#msg');
-    if(!s){ msg.textContent='Sélectionnez un parti.'; return; }
+
+    // On enlève le message "Sélectionnez un parti." demandé
+    if (!s) { return; }
 
     try{
       // UX : empêcher si OAuth requis et pas connecté
