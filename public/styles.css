@@ -1,19 +1,19 @@
-/* === Variables couleurs & tailles (contrôlent aussi Chart.js via app.js) === */
+/* === Variables couleurs & tailles === */
 :root{
   --bg-0:#ffffff; --bg-1:#f6f6f6; --grid:#e0e0e0; --text:#222; --muted:#666;
   --accent:#444; --accent-hover:#000; --accent-danger:#cc0000;
   --card:#ffffff; --shadow:0 4px 12px rgba(0,0,0,.08); --radius:.75rem;
 
-  /* Pilote les parties dessinées dans le canvas */
-  --pie-label-color:#fff;           /* texte au centre des parts */
-  --pie-label-font-size:16;         /* px */
-  --pie-legend-font-size:14;        /* px (légende Chart.js) */
+  /* Chart.js (labels dessinés dans le canvas) */
+  --pie-label-color:#fff;
+  --pie-label-font-size:16;   /* px */
 }
 
+/* Reset de base */
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:system-ui,sans-serif;background:var(--bg-0);color:var(--text)}
+html,body{height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;background:var(--bg-0);color:var(--text)}
 
-/* === En-tête =============================================================== */
+/* === En-tête === */
 .md-appbar{background:#fff;color:var(--text);padding:.75rem 1.25rem;border-bottom:1px solid var(--grid)}
 .md-appbar__inner{display:flex;align-items:center;justify-content:space-between}
 .md-brand{display:flex;align-items:center;gap:.75rem}
@@ -22,33 +22,47 @@ html,body{height:100%;font-family:system-ui,sans-serif;background:var(--bg-0);co
 .md-title{font-weight:600;font-size:1.25rem}
 .md-subtitle{font-size:.9rem;color:var(--muted)}
 
-/* === Layout ================================================================ */
+/* === Layout === */
 .container{flex:1;padding:1.5rem;max-width:1200px;margin:auto}
 .md-grid{display:grid;grid-template-columns:2fr 1fr;gap:1.5rem}
-@media (max-width:900px){ .md-grid{grid-template-columns:1fr} }
+@media (max-width:900px){.md-grid{grid-template-columns:1fr}}
 
-/* === Cards ================================================================ */
+/* === Cards === */
 .md-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;overflow:visible}
-.chart-card{display:flex;align-items:center;justify-content:center;position:relative;padding:1rem}
-.chart-card canvas{display:block;margin:0 auto}  /* centre le camembert */
-.vote-card{display:flex;flex-direction:column;gap:1rem;position:relative;z-index:1}
 .results-card{margin-top:1.5rem}
 
-/* === Formulaire (liste vote à droite) ===================================== */
+/* Camembert : empile canvas + légende */
+.chart-card{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:1rem 1rem 1.25rem;
+}
+.chart-card canvas{display:block;max-width:720px;width:100%}
+
+/* Légende HTML (2 colonnes) injectée par app.js */
+.chart-legend{
+  display:grid; grid-template-columns:1fr 1fr; gap:8px 24px;
+  margin-top:12px; width:100%; max-width:720px;
+}
+.chart-legend ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.chart-legend li{display:flex;align-items:center;gap:8px;font-size:16px;line-height:1.2}
+.chart-legend .swatch{display:inline-block;width:22px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,.15);flex:0 0 auto}
+
+/* === Form vote (colonne de droite) === */
+.vote-card{display:flex;flex-direction:column;gap:1rem;position:relative;z-index:1}
 .form{display:flex;flex-direction:column;gap:.75rem}
 .candidate-list{display:flex;flex-direction:column;gap:.6rem;position:relative;z-index:0}
-.candidate{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:1rem;padding:.35rem .5rem;border-radius:6px;transition:background .2s;position:relative;z-index:0}
+.candidate{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:1rem;padding:.35rem .5rem;border-radius:6px;transition:background .2s}
 .candidate:hover{background:var(--bg-1)}
 .candidate input[type="checkbox"]{accent-color:var(--accent)}
 .dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--dot,var(--accent))}
 
-/* === Bouton "Voter" (existant) =========================================== */
+/* === Boutons === */
 .md-button{display:inline-flex;align-items:center;justify-content:center;padding:.7rem 1.2rem;border-radius:9999px;font-weight:600;font-size:.95rem;background:none;border:2px solid var(--accent);color:var(--accent);cursor:pointer;transition:.2s}
 .md-button--filled{background:var(--accent);color:#fff;border-color:var(--accent)}
 .md-button:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}
 .vote-btn{width:100%;margin-top:.5rem}
 
-/* === Boutons auth : mêmes feedbacks + ripple ============================== */
+/* Auth buttons (même feedbacks + ripple) */
 .auth-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 14px;position:relative;z-index:10}
 .auth-actions .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:999px;font-weight:700;font-size:.95rem;border:2px solid #2b2b2b26;background:#fff;color:#111;box-shadow:0 1px 0 rgba(0,0,0,.06),0 2px 10px rgba(0,0,0,.06);transition:transform .06s ease,box-shadow .2s ease,background .2s ease,color .2s ease,border-color .2s ease;position:relative;overflow:hidden;pointer-events:auto;outline:none;cursor:pointer}
 .auth-actions .btn.primary{background:#111;color:#fff;border-color:#111}
@@ -62,37 +76,23 @@ html,body{height:100%;font-family:system-ui,sans-serif;background:var(--bg-0);co
 @keyframes btn-ripple{0%{opacity:.35;width:0;height:0}60%{opacity:.25;width:220%;height:220%}100%{opacity:0;width:260%;height:260%}}
 #loginBtn,#logoutBtn{cursor:pointer}
 
-/* === Messages & status ===================================================== */
+/* Messages & divers */
 .caption{font-size:.85rem}
 .muted{color:var(--muted)}
 #msg{min-height:1.2rem;margin-top:.25rem;color:var(--text)}
 #auth-status{font-style:italic;margin-left:.5rem}
 
-/* === Tableau =============================================================== */
+/* Table des résultats */
 .table{width:100%;border-collapse:collapse;margin-top:.75rem}
 .table th,.table td{padding:.6rem;text-align:left}
 .table th{color:var(--muted);font-weight:600;font-size:.9rem}
 .table tr:nth-child(even){background:#f6f6f6}
 
-/* === "Pourquoi la connexion Google ?" (toujours visible) ================== */
-.why-connect{margin-top:1rem;font-size:.95rem}
-.why-connect summary{list-style:none;cursor:default;font-weight:700;color:#111}
-.why-content{margin-top:8px;padding:10px 12px;border-radius:12px;background:#f7f7f8}
-.why-content ul{margin:8px 0 0 18px}
-
-/* === Centre label optionnel (si utilisé) ================================== */
-.center-label{position:absolute;text-align:center;font-size:1.2rem;font-weight:600;color:#fff}
-
-/* === Footer ================================================================ */
+/* Footer */
 .footer{text-align:center;padding:.75rem;color:var(--muted);font-size:.85rem;margin-top:1.5rem}
 
-/* === Responsive ============================================================ */
+/* Responsive */
 @media (max-width:560px){
   .auth-actions{flex-direction:column;align-items:stretch}
-}
-
-#myChart + .chartjs-legend ul {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr; /* 2 colonnes */
-  gap: 8px 24px; /* espace entre lignes et colonnes */
+  .chart-legend{grid-template-columns:1fr} /* 1 colonne sur mobile */
 }
