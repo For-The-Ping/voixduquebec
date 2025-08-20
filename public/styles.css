@@ -1,171 +1,92 @@
-/* === Variables couleurs globales === */
-:root {
-  --bg-0: #ffffff;
-  --bg-1: #f6f6f6;
-  --grid: #e0e0e0;
-  --text: #222;
-  --muted: #666;
-  --accent: #444;           /* gris neutre */
-  --accent-hover: #000;     /* noir au survol */
-  --accent-danger: #cc0000; /* pour messages d'erreur */
-  --card: #ffffff;
-  --shadow: 0 4px 12px rgba(0,0,0,.08);
-  --radius: 0.75rem;
+/* === Variables couleurs & tailles (contrôlent aussi Chart.js via app.js) === */
+:root{
+  --bg-0:#ffffff; --bg-1:#f6f6f6; --grid:#e0e0e0; --text:#222; --muted:#666;
+  --accent:#444; --accent-hover:#000; --accent-danger:#cc0000;
+  --card:#ffffff; --shadow:0 4px 12px rgba(0,0,0,.08); --radius:.75rem;
+
+  /* Pilote les parties dessinées dans le canvas */
+  --pie-label-color:#fff;           /* texte au centre des parts */
+  --pie-label-font-size:16;         /* px */
+  --pie-legend-font-size:14;        /* px (légende Chart.js) */
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: system-ui, sans-serif; background: var(--bg-0); color: var(--text); }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:system-ui,sans-serif;background:var(--bg-0);color:var(--text)}
 
-/* === En-tête === */
-.md-appbar {
-  background: #fff;
-  color: var(--text);
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--grid);
-}
-.md-appbar__inner {
-  display: flex; align-items: center; justify-content: space-between;
-}
-.md-brand { display: flex; align-items: center; gap: 0.75rem; }
-.qc-flag { height: 32px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
-.md-brand__text { display: flex; flex-direction: column; }
-.md-title { font-weight: 600; font-size: 1.25rem; }
-.md-subtitle { font-size: 0.9rem; color: var(--muted); }
+/* === En-tête =============================================================== */
+.md-appbar{background:#fff;color:var(--text);padding:.75rem 1.25rem;border-bottom:1px solid var(--grid)}
+.md-appbar__inner{display:flex;align-items:center;justify-content:space-between}
+.md-brand{display:flex;align-items:center;gap:.75rem}
+.qc-flag{height:32px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.md-brand__text{display:flex;flex-direction:column}
+.md-title{font-weight:600;font-size:1.25rem}
+.md-subtitle{font-size:.9rem;color:var(--muted)}
 
-/* === Layout === */
-.container { flex: 1; padding: 1.5rem; max-width: 1200px; margin: auto; }
-.md-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
-@media (max-width: 900px) { .md-grid { grid-template-columns: 1fr; } }
+/* === Layout ================================================================ */
+.container{flex:1;padding:1.5rem;max-width:1200px;margin:auto}
+.md-grid{display:grid;grid-template-columns:2fr 1fr;gap:1.5rem}
+@media (max-width:900px){ .md-grid{grid-template-columns:1fr} }
 
-/* === Cards === */
-.md-card {
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.25rem;
-  overflow: visible; /* évite les recouvrements étranges */
-}
-.chart-card { display: flex; align-items: center; justify-content: center; position: relative; }
-.vote-card  { display: flex; flex-direction: column; gap: 1rem; position: relative; z-index: 1; }
-.results-card { margin-top: 1.5rem; }
+/* === Cards ================================================================ */
+.md-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;overflow:visible}
+.chart-card{display:flex;align-items:center;justify-content:center;position:relative;padding:1rem}
+.chart-card canvas{display:block;margin:0 auto}  /* centre le camembert */
+.vote-card{display:flex;flex-direction:column;gap:1rem;position:relative;z-index:1}
+.results-card{margin-top:1.5rem}
 
-/* === Forms === */
-.form { display: flex; flex-direction: column; gap: 0.75rem; }
-.candidate-list { display: flex; flex-direction: column; gap: 0.6rem; position: relative; z-index: 0; }
-.candidate {
-  display: flex; align-items: center; gap: 0.5rem;
-  cursor: pointer; font-size: 1rem; padding: 0.35rem 0.5rem;
-  border-radius: 6px; transition: background 0.2s;
-  position: relative; z-index: 0; /* ne doit pas recouvrir les boutons */
-}
-.candidate:hover { background: var(--bg-1); }
-.candidate input[type="checkbox"] { accent-color: var(--accent); }
-.dot {
-  display: inline-block; width: 14px; height: 14px;
-  border-radius: 50%; background: var(--dot, var(--accent));
-}
+/* === Formulaire (liste vote à droite) ===================================== */
+.form{display:flex;flex-direction:column;gap:.75rem}
+.candidate-list{display:flex;flex-direction:column;gap:.6rem;position:relative;z-index:0}
+.candidate{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:1rem;padding:.35rem .5rem;border-radius:6px;transition:background .2s;position:relative;z-index:0}
+.candidate:hover{background:var(--bg-1)}
+.candidate input[type="checkbox"]{accent-color:var(--accent)}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--dot,var(--accent))}
 
-/* === Bouton "Voter" (original) === */
-.md-button {
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 0.7rem 1.2rem;
-  border-radius: 9999px;
-  font-weight: 600; font-size: 0.95rem;
-  background: none; border: 2px solid var(--accent);
-  color: var(--accent); cursor: pointer; transition: .2s;
-}
-.md-button--filled { background: var(--accent); color: #fff; border-color: var(--accent); }
-.md-button:hover   { background: var(--accent-hover); color: #fff; border-color: var(--accent-hover); }
-.vote-btn { width: 100%; margin-top: 0.5rem; }
+/* === Bouton "Voter" (existant) =========================================== */
+.md-button{display:inline-flex;align-items:center;justify-content:center;padding:.7rem 1.2rem;border-radius:9999px;font-weight:600;font-size:.95rem;background:none;border:2px solid var(--accent);color:var(--accent);cursor:pointer;transition:.2s}
+.md-button--filled{background:var(--accent);color:#fff;border-color:var(--accent)}
+.md-button:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}
+.vote-btn{width:100%;margin-top:.5rem}
 
-/* === Boutons auth (même look & feedback que "Voter") === */
-.auth-actions{
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  margin: 10px 0 14px;
-  position: relative; z-index: 10; /* prioritaire pour les clics */
-}
-.auth-actions .btn{
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:10px 16px;
-  border-radius:999px; font-weight:700; font-size:0.95rem;
-  border:2px solid #2b2b2b26; background:#fff; color:#111;
-  box-shadow:0 1px 0 rgba(0,0,0,.06), 0 2px 10px rgba(0,0,0,.06);
-  transition: transform .06s ease, box-shadow .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
-  position:relative; overflow:hidden; /* pour le ripple */
-  pointer-events: auto; outline: none;
-}
-.auth-actions .btn.primary{ background:#111; color:#fff; border-color:#111; }
-.auth-actions .btn.outline{ background:#fff; color:#111; }
+/* === Boutons auth : mêmes feedbacks + ripple ============================== */
+.auth-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 14px;position:relative;z-index:10}
+.auth-actions .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:999px;font-weight:700;font-size:.95rem;border:2px solid #2b2b2b26;background:#fff;color:#111;box-shadow:0 1px 0 rgba(0,0,0,.06),0 2px 10px rgba(0,0,0,.06);transition:transform .06s ease,box-shadow .2s ease,background .2s ease,color .2s ease,border-color .2s ease;position:relative;overflow:hidden;pointer-events:auto;outline:none;cursor:pointer}
+.auth-actions .btn.primary{background:#111;color:#fff;border-color:#111}
+.auth-actions .btn.outline{background:#fff;color:#111}
+.auth-actions .btn:hover{box-shadow:0 2px 0 rgba(0,0,0,.08),0 6px 20px rgba(0,0,0,.12)}
+.auth-actions .btn:active{transform:translateY(1px) scale(.99)}
+.auth-actions .btn:focus-visible{box-shadow:0 0 0 3px rgba(0,0,0,.1),0 0 0 6px rgba(17,17,17,.18)}
+.auth-actions .btn::after{content:"";position:absolute;left:50%;top:50%;width:0;height:0;border-radius:50%;background:rgba(255,255,255,.35);transform:translate(-50%,-50%);opacity:0;pointer-events:none}
+.auth-actions .btn.outline::after{background:rgba(0,0,0,.12)}
+.auth-actions .btn.is-rippling::after{animation:btn-ripple .45s ease-out}
+@keyframes btn-ripple{0%{opacity:.35;width:0;height:0}60%{opacity:.25;width:220%;height:220%}100%{opacity:0;width:260%;height:260%}}
+#loginBtn,#logoutBtn{cursor:pointer}
 
-.auth-actions .btn:hover{
-  box-shadow:0 2px 0 rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.12);
-}
-.auth-actions .btn:active{
-  transform: translateY(1px) scale(0.99);
-}
-.auth-actions .btn:focus-visible{
-  box-shadow:0 0 0 3px rgba(0,0,0,.1), 0 0 0 6px rgba(17,17,17,.18);
-}
-.auth-actions * { pointer-events: auto !important; } /* défensif */
-.auth-hint{ margin:0 0 0 4px; color:#6b7280; font-size:.92rem; }
+/* === Messages & status ===================================================== */
+.caption{font-size:.85rem}
+.muted{color:var(--muted)}
+#msg{min-height:1.2rem;margin-top:.25rem;color:var(--text)}
+#auth-status{font-style:italic;margin-left:.5rem}
 
-#btn-vote { position: relative; z-index: 10; } /* vote bouton cliquable */
-#loginBtn, #logoutBtn { cursor: pointer; }
-/* Ripple (même logique que pour "Voter" si tu ajoutes la classe is-rippling en JS) */
-.auth-actions .btn::after{
-  content:""; position:absolute; left:50%; top:50%;
-  width:0; height:0; border-radius:50%;
-  background: rgba(255,255,255,.35); transform: translate(-50%, -50%);
-  opacity:0; pointer-events:none;
-}
-.auth-actions .btn.outline::after{ background: rgba(0,0,0,.12); }
-.auth-actions .btn.is-rippling::after{ animation: btn-ripple .45s ease-out; }
-@keyframes btn-ripple{
-  0%   { opacity:.35; width:0; height:0; }
-  60%  { opacity:.25; width:220%; height:220%; }
-  100% { opacity:0;   width:260%; height:260%; }
-}
+/* === Tableau =============================================================== */
+.table{width:100%;border-collapse:collapse;margin-top:.75rem}
+.table th,.table td{padding:.6rem;text-align:left}
+.table th{color:var(--muted);font-weight:600;font-size:.9rem}
+.table tr:nth-child(even){background:#f6f6f6}
 
-/* === Messages & status === */
-.caption { font-size: 0.85rem; }
-.muted { color: var(--muted); }
-#msg { min-height: 1.2rem; margin-top: 0.25rem; color: var(--text); }
-#auth-status { font-style: italic; margin-left: 0.5rem; }
+/* === "Pourquoi la connexion Google ?" (toujours visible) ================== */
+.why-connect{margin-top:1rem;font-size:.95rem}
+.why-connect summary{list-style:none;cursor:default;font-weight:700;color:#111}
+.why-content{margin-top:8px;padding:10px 12px;border-radius:12px;background:#f7f7f8}
+.why-content ul{margin:8px 0 0 18px}
 
-/* === Table === */
-.table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
-.table th, .table td { padding: 0.6rem; text-align: left; }
-.table th { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
-.table tr:nth-child(even) { background: #f6f6f6; }
+/* === Centre label optionnel (si utilisé) ================================== */
+.center-label{position:absolute;text-align:center;font-size:1.2rem;font-weight:600;color:#fff}
 
-/* === Panneau explications (remplace “Pourquoi ces limites ?”) === */
-/* IMPORTANT : ne mets PAS l’attribut 'open' sur <details class="why-connect"> pour qu'il soit replié par défaut */
-.why-connect { margin-top: 1rem; font-size: 0.95rem; }
-.why-connect summary{
-  list-style: none; cursor: pointer; font-weight: 700; color: #111;
-}
-.why-connect[open] > summary::marker{ display:none; }
-.why-content{
-  margin-top:8px; padding:10px 12px;
-  border-radius:12px; background:#f7f7f8;
-}
-.why-content ul{ margin:8px 0 0 18px; }
+/* === Footer ================================================================ */
+.footer{text-align:center;padding:.75rem;color:var(--muted);font-size:.85rem;margin-top:1.5rem}
 
-/* === Center pie labels === */
-.center-label {
-  position: absolute; text-align: center;
-  font-size: 1.2rem; font-weight: 600;
-}
-
-/* === Footer === */
-.footer {
-  text-align: center; padding: 0.75rem;
-  color: var(--muted); font-size: 0.85rem;
-  margin-top: 1.5rem;
-}
-
-/* === Responsive === */
+/* === Responsive ============================================================ */
 @media (max-width:560px){
-  .auth-actions{ flex-direction:column; align-items:stretch; }
-  .auth-hint{ margin:0; text-align:center; }
+  .auth-actions{flex-direction:column;align-items:stretch}
 }
