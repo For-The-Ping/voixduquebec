@@ -39,17 +39,15 @@ function renderCandidates(list){
   wrap.innerHTML='';
   list.forEach(c=>{
     const color = c.color || pickColor(c.name);
+    const acro   = partyAcronym(c.name);
+    const leader = c.leader || ''; // fourni par ton backend
+
     const label = document.createElement('label');
     label.className='candidate';
-
-    // On affiche acronyme + chef
-    const acro = partyAcronym(c.name);
-    const leader = c.leader ? ` (${c.leader})` : '';
-
     label.innerHTML = `
       <span class="dot" style="--dot:${color}"></span>
       <input type="checkbox" name="candidate" value="${c.id}" />
-      <span class="cand-name">${acro}${leader}</span>`;
+      <span class="cand-name">${acro} ${leader}</span>`;
     wrap.appendChild(label);
   });
 
