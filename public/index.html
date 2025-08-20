@@ -38,11 +38,11 @@
           <div id="candidate-list" class="candidate-list"></div>
 
           <!-- Connexion OAuth -->
-          <div class="oauth-row">
-            <button type="button" class="md-button" id="login-google">Se connecter avec Google</button>
-            <button type="button" class="md-button" id="logout-btn">Se déconnecter</button>
-            <span id="auth-status" class="caption muted"></span>
-          </div>
+        <div class="auth-actions">
+          <button id="loginBtn" class="btn primary">Se connecter avec Google</button>
+          <button id="logoutBtn" class="btn outline">Se déconnecter</button>
+          <p class="auth-hint" data-auth-hint>Connexion requise pour voter</p>
+        </div>
 
           <div class="push"></div>
 
@@ -54,12 +54,21 @@
           </button>
           <p id="msg" class="caption muted"></p>
         </form>
-        <details class="expando">
-          <summary>Pourquoi ces limites ?</summary>
-          <p class="body">
-            Preuve de travail, quotas session/IP, captcha (optionnel) et connexion Google.
-            Politique <b>REPLACE</b> : vous pouvez changer d’avis, le total est ajusté.
-          </p>
+        <details class="why-connect" open>
+          <summary>Pourquoi la connexion Google&nbsp;?</summary>
+          <div class="why-content">
+            <p>
+              Se connecter avec Google nous aide à empêcher le spam et la fraude
+              sans inscription compliquée ni numéro de téléphone.
+            </p>
+            <ul>
+              <li><strong>Un vote par personne</strong> : OAuth limite les doublons et bloque les robots.</li>
+              <li><strong>Vie privée</strong> : on ne lit pas vos courriels et on ne publie rien ; on stocke seulement un identifiant <em>haché</em> pour valider l’unicité.</li>
+              <li><strong>Transparence</strong> : code et méthodologie ouverts à l’audit.</li>
+              <li><strong>Coûts réduits</strong> : pas d’SMS ni d’infra anti‑bot lourde → service durable.</li>
+              <li><strong>Conforme Loi 25</strong> : collecte minimale, finalité claire, conservation limitée.</li>
+            </ul>
+          </div>
         </details>
       </aside>
     </section>
