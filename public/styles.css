@@ -90,3 +90,9 @@ html,body{height:100%;font-family:system-ui,sans-serif;background:var(--bg-0);co
 @media (max-width:560px){
   .auth-actions{flex-direction:column;align-items:stretch}
 }
+
+#myChart + .chartjs-legend ul {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr; /* 2 colonnes */
+  gap: 8px 24px; /* espace entre lignes et colonnes */
+}
