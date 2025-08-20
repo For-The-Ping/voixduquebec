@@ -283,6 +283,31 @@
       if (cur !== last && chart) {
         last = cur;
         chart.options.plugins.legend.labels.font.size = parseInt(cur, 10) || 14;
+        options: {
+          plugins: {
+            legend: {
+              display: true,
+              labels: {
+                font: {
+                  size: 16 // garde ta police plus grosse
+                },
+                generateLabels: function (chart) {
+                  const labels = Chart.overrides.pie.plugins.legend.labels.generateLabels(chart);
+                  // On coupe en 2 colonnes
+                  const mid = Math.ceil(labels.length / 2);
+                  return labels.map((l, i) => {
+                    l.textAlign = i < mid ? 'left' : 'right';
+                    return l;
+                  });
+                }
+              },
+              position: 'bottom'
+            }
+          },
+          layout: {
+            padding: 20
+          }
+        }
         chart.update();
       }
     }, 500);
