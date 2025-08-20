@@ -208,7 +208,6 @@
       const msg=$('#msg'); if(msg) msg.textContent=e.message;
     }
   });
-})();
 // === Observer les changements de --pie-legend-font-size ===
 (function observeLegendFontSize() {
   const root = document.documentElement;
