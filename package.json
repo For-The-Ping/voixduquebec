@@ -13,4 +13,16 @@
     "express": "^4.19.2",
     "luxon": "^3.4.4"
   }
+{
+  "scripts": {
+    "start": "node server.js",
+    "build": "mkdir -p public/vendor && cp node_modules/chart.js/dist/chart.umd.js public/vendor/chart.umd.js",
+    "postinstall": "npm run build"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.3",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "luxon": "^3.4.4"
+  }
 }
