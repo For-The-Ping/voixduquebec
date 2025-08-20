@@ -16,12 +16,14 @@ const SESSION_COOKIE = process.env.SESSION_COOKIE || 'v_sid';
 const POW_BITS = Number(process.env.POW_BITS || 18);      // difficulté PoW
 const TZ = process.env.TZ || 'America/Toronto';
 const DEMO = process.env.DEMO_MODE === '1';               // limites plus souples pour tests
+const chartDist = path.dirname(require.resolve('chart.js/dist/chart.umd.js'));
 
 const app = express();
 app.set('trust proxy', true);
 app.use(express.json());
 app.use(cookieParser(SESSION_SECRET));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
+app.use('/vendor', express.static(chartDist));
 
 /* ---------- Persistance (JSON) ---------- */
 const DATA_FILE = path.join(__dirname, 'tallies.json');
