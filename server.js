@@ -158,4 +158,202 @@ const ipBuckets = new Map();      // ip -> {windowStart,count10m,day,countDay}
 const sessionBuckets = new Map(); // sid -> {lastVoteTs,day,countDay}
 const MIN_INTERVAL_MS     = DEMO ? 3000  : 60000; // 1 min / session
 const SESSION_MAX_PER_DAY = DEMO ? 1000  : 10;
-const
+const IP_MAX_10MIN        = DEMO ? 1000  : 5;
+const IP_MAX_PER_DAY      = DEMO ? 5000  : 100;
+
+function checkLimits(req,res,next){
+  const now = Date.now();
+  const ip  = getClientIp(req);
+  const sid = ensureSession(req,res);
+
+  const ipEntry = ipBuckets.get(ip) || { windowStart: now, count10m:0, day: todayStr(), countDay:0 };
+  if (now - ipEntry.windowStart > 10*60*1000){ ipEntry.windowStart = now; ipEntry.count10m = 0; }
+  if (ipEntry.day !== todayStr()){ ipEntry.day = todayStr(); ipEntry.countDay = 0; }
+  ipEntry.count10m++; ipEntry.countDay++; ipBuckets.set(ip, ipEntry);
+  if (ipEntry.count10m > IP_MAX_10MIN) return res.status(429).json({ error:'Trop de votes IP (10 min)' });
+  if (ipEntry.countDay  > IP_MAX_PER_DAY) return res.status(429).json({ error:'Quota quotidien IP atteint' });
+
+  const s = sessionBuckets.get(sid) || { lastVoteTs:0, day:todayStr(), countDay:0 };
+  if (s.day !== todayStr()){ s.day = todayStr(); s.countDay = 0; }
+  if (now - s.lastVoteTs < MIN_INTERVAL_MS){
+    const wait = Math.ceil((MIN_INTERVAL_MS - (now - s.lastVoteTs))/1000);
+    return res.status(429).json({ error:`Patientez ${wait}s` });
+  }
+  if (s.countDay >= SESSION_MAX_PER_DAY) return res.status(429).json({ error:`Limite ${SESSION_MAX_PER_DAY} votes/jour` });
+  s.lastVoteTs = now; s.countDay++; sessionBuckets.set(sid, s);
+
+  next();
+}
+
+/* ---------- OAuth Clients (Google + Microsoft) ---------- */
+let gClient = null, msClient = null;
+async function getClients(){
+  if (!gClient && GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET){
+    const gIssuer = await Issuer.discover('https://accounts.google.com');
+    gClient = new gIssuer.Client({
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uris: [`${BASE_URL}/auth/callback/google`],
+      response_types: ['code']
+    });
+  }
+  if (!msClient && MS_CLIENT_ID && MS_CLIENT_SECRET){
+    const msIssuer = await Issuer.discover('https://login.microsoftonline.com/common/v2.0');
+    msClient = new msIssuer.Client({
+      client_id: MS_CLIENT_ID,
+      client_secret: MS_CLIENT_SECRET,
+      redirect_uris: [`${BASE_URL}/auth/callback/microsoft`],
+      response_types: ['code']
+    });
+  }
+}
+
+/* ---------- Routes OAuth ---------- */
+app.get('/api/me', async (req,res)=>{
+  const sid = ensureSession(req,res);
+  const acct = getAccountIdForSid(sid);
+  res.json({ authenticated: !!acct, accountId: acct, oauthRequired: !!OAUTH_REQUIRED });
+});
+
+app.get('/auth/google', async (req,res)=>{
+  await getClients();
+  if (!gClient) return res.status(500).send('Google OAuth non configuré.');
+  const state = generators.state();
+  const nonce = generators.nonce();
+  res.cookie('oauth_state', state, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
+  res.cookie('oauth_nonce', nonce, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
+  const url = gClient.authorizationUrl({
+    scope: 'openid email profile',
+    state, nonce
+  });
+  res.redirect(url);
+});
+
+app.get('/auth/callback/google', async (req,res)=>{
+  try{
+    await getClients();
+    if (!gClient) return res.status(500).send('Google OAuth non configuré.');
+    const sid = ensureSession(req,res);
+    const state = req.signedCookies['oauth_state'];
+    const nonce = req.signedCookies['oauth_nonce'];
+    const params = gClient.callbackParams(req);
+    const tokenSet = await gClient.callback(`${BASE_URL}/auth/callback/google`, params, { state, nonce });
+    const claims = tokenSet.claims(); // sub, iss, email, etc.
+    const accountId = `${claims.iss}|${claims.sub}`;
+    DATA.voterAccountBySid[sid] = accountId;
+    saveData(DATA);
+    res.clearCookie('oauth_state'); res.clearCookie('oauth_nonce');
+    res.redirect('/');
+  }catch(e){
+    console.error('[OAuth Google]', e);
+    res.status(500).send('Erreur OAuth Google');
+  }
+});
+
+app.get('/auth/microsoft', async (req,res)=>{
+  await getClients();
+  if (!msClient) return res.status(500).send('Microsoft OAuth non configuré.');
+  const state = generators.state();
+  const nonce = generators.nonce();
+  res.cookie('oauth_state', state, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
+  res.cookie('oauth_nonce', nonce, { httpOnly:true, sameSite:'lax', secure:!!process.env.COOKIE_SECURE, signed:true, maxAge: 10*60*1000 });
+  const url = msClient.authorizationUrl({
+    scope: 'openid email profile offline_access',
+    state, nonce,
+  });
+  res.redirect(url);
+});
+
+app.get('/auth/callback/microsoft', async (req,res)=>{
+  try{
+    await getClients();
+    if (!msClient) return res.status(500).send('Microsoft OAuth non configuré.');
+    const sid = ensureSession(req,res);
+    const state = req.signedCookies['oauth_state'];
+    const nonce = req.signedCookies['oauth_nonce'];
+    const params = msClient.callbackParams(req);
+    const tokenSet = await msClient.callback(`${BASE_URL}/auth/callback/microsoft`, params, { state, nonce });
+    const claims = tokenSet.claims();
+    const accountId = `${claims.iss}|${claims.sub}`;
+    DATA.voterAccountBySid[sid] = accountId;
+    saveData(DATA);
+    res.clearCookie('oauth_state'); res.clearCookie('oauth_nonce');
+    res.redirect('/');
+  }catch(e){
+    console.error('[OAuth Microsoft]', e);
+    res.status(500).send('Erreur OAuth Microsoft');
+  }
+});
+
+app.post('/auth/logout', (req,res)=>{
+  const sid = ensureSession(req,res);
+  delete DATA.voterAccountBySid[sid];
+  saveData(DATA);
+  res.json({ ok:true });
+});
+
+/* ---------- API existantes ---------- */
+app.get('/api/health', (req,res)=>{
+  res.json({
+    ok:true, pow_bits: POW_BITS, today: todayStr(), demo: DEMO,
+    turnstile: !!TURNSTILE_SECRET, vote_policy: VOTE_POLICY, oauthRequired: !!OAUTH_REQUIRED
+  });
+});
+app.get('/api/candidates', (req,res)=> res.json(candidates));
+app.get('/api/results', (req,res)=>{
+  const total = Object.values(DATA.votes).reduce((a,b)=>a+b,0);
+  const results = candidates.map(c=>{
+    const v = DATA.votes[c.id] || 0;
+    const percent = total ? Math.round(v*1000/total)/10 : 0;
+    return { id:c.id, name:c.name, votes:v, percent, color:c.color };
+  });
+  const maxVotes = results.reduce((m, r) => Math.max(m, r.votes), 0);
+  const leaders  = maxVotes > 0 ? results.filter(r => r.votes === maxVotes) : [];
+  const leader   = leaders.length === 1 ? leaders[0] : null;
+  res.json({ total, leader, isTie: leaders.length > 1, leaders, results });
+});
+app.get('/api/pow', (req,res)=> res.json({ challenge: makeChallenge(req), bits: POW_BITS }));
+
+// Ordre: quotas -> captcha -> anti-replay -> PoW -> OAuth requirement -> Politique REPLACE
+app.post('/api/vote', checkLimits, verifyTurnstile, verifyReplay, (req,res)=>{
+  try{
+    const { candidateId, pow } = req.body || {};
+    if (!Number.isInteger(candidateId)) return res.status(400).json({ error:'candidateId invalide' });
+    if (!candidates.find(c => c.id === candidateId)) return res.status(404).json({ error:'Candidat inconnu' });
+    if (!verifyPowPayload(pow)) return res.status(400).json({ error:'Preuve de travail invalide' });
+
+    const sid = ensureSession(req, res);
+    if (OAUTH_REQUIRED && !getAccountIdForSid(sid)) {
+      return res.status(403).json({ error:'Connectez-vous (Google/Microsoft) pour voter.' });
+    }
+
+    const voterId = getVoterId(req, sid); // acct:iss|sub si connecté, sinon session+UA
+    const prev = DATA.voterChoices[voterId];
+
+    if (prev && prev !== candidateId) {
+      // REPLACE: déplacer le vote
+      if (DATA.votes[prev] && DATA.votes[prev] > 0) DATA.votes[prev] -= 1;
+      DATA.votes[candidateId] = (DATA.votes[candidateId] || 0) + 1;
+      DATA.voterChoices[voterId] = candidateId;
+      saveData(DATA);
+      console.log('[VOTE SWITCH]', { ip:getClientIp(req), from: prev, to: candidateId });
+      return res.json({ ok: true, switched: true });
+    }
+
+    if (!prev) {
+      DATA.votes[candidateId] = (DATA.votes[candidateId] || 0) + 1;
+      DATA.voterChoices[voterId] = candidateId;
+      saveData(DATA);
+      console.log('[VOTE OK]', { ip:getClientIp(req), candidateId, total: DATA.votes[candidateId] });
+      return res.json({ ok: true, first: true });
+    }
+
+    return res.json({ ok: true, duplicate: true });
+  }catch(e){
+    console.error('[VOTE ERR]', e);
+    res.status(500).json({ error:'Erreur serveur' });
+  }
+});
+
+/* ---------- Boot ---------- */
+app.listen(PORT, ()=>console.log(`Serveur prêt sur ${BASE_URL}`));
