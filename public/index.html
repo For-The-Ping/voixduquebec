@@ -53,8 +53,12 @@
 
           <div class="push"></div>
 
-          <!-- Widget Turnstile (optionnel) -->
-          <div class="cf-turnstile" data-sitekey="SITE_KEY" data-theme="auto" data-size="flexible"></div>
+        <div class="oauth-row">
+  <button type="button" class="md-button" onclick="location.href='/auth/google'">Se connecter avec Google</button>
+  <button type="button" class="md-button" onclick="location.href='/auth/microsoft'">Se connecter avec Microsoft</button>
+  <button type="button" class="md-button" id="logout-btn">Se déconnecter</button>
+  <span id="auth-status" class="caption muted"></span>
+</div>
 
           <button type="submit" class="md-button md-button--filled ripple vote-btn">
             <span class="md-button__label">Voter</span>
