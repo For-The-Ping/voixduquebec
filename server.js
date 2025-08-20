@@ -128,16 +128,28 @@ app.get('/api/health', (req,res)=>{
 
 app.get('/api/candidates', (req,res)=> res.json(candidates));
 
-app.get('/api/results', (req,res)=>{
-  const total = Object.values(DATA.votes).reduce((a,b)=>a+b,0);
-  const results = candidates.map(c=>{
+app.get('/api/results', (req, res) => {
+  const total = Object.values(DATA.votes).reduce((a, b) => a + b, 0);
+
+  const results = candidates.map(c => {
     const v = DATA.votes[c.id] || 0;
-    const percent = total ? Math.round(v*1000/total)/10 : 0;
-    return { id:c.id, name:c.name, votes:v, percent, color:c.color };
+    const percent = total ? Math.round(v * 1000 / total) / 10 : 0;
+    return { id: c.id, name: c.name, votes: v, percent, color: c.color };
   });
-  const leader = results.reduce((acc,r)=>(acc && acc.votes>r.votes)?acc:r, null);
-  res.json({ total, leader, results });
+
+  const maxVotes = results.reduce((m, r) => Math.max(m, r.votes), 0);
+  const leaders  = maxVotes > 0 ? results.filter(r => r.votes === maxVotes) : [];
+
+  // leader = unique gagnant, sinon null ; isTie = ex æquo (>=2 leaders)
+  res.json({
+    total,
+    leader: leaders.length === 1 ? leaders[0] : null,
+    isTie: leaders.length > 1,
+    leaders,           // liste complète des ex æquo (utile côté front)
+    results
+  });
 });
+
 
 app.get('/api/pow', (req,res)=>{
   res.json({ challenge: makeChallenge(req), bits: POW_BITS });
