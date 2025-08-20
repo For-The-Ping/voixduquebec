@@ -246,10 +246,18 @@ async function waitForChart(maxMs = 3000) {
     }
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    const form = $('#vote-form');
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await waitForChart(); // Vérifie que Chart.js est bien chargé
+
+    const form = document.querySelector('#vote-form');
     if (form) form.addEventListener('submit', vote);
+
     await refresh();
     setInterval(refresh, 30000);
-  });
-})();
+  } catch (e) {
+    console.error(e);
+    const msg = document.querySelector('#msg');
+    if (msg) msg.textContent = e.message || 'Erreur de chargement Chart.js';
+  }
+});
