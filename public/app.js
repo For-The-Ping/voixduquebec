@@ -21,6 +21,36 @@
   const pickColor = (name, fb='#888') =>
     (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
 
+  // --- Anti‑replay + PoW utils ---
+  async function sha256Hex(s){
+    const b=new TextEncoder().encode(s);
+    const d=await crypto.subtle.digest('SHA-256', b);
+    return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  function countLeadingZeroBitsFromHex(hex){
+    let bits=0;
+    for(let i=0;i<hex.length;i++){
+      const n=parseInt(hex[i],16);
+      if(n===0){bits+=4;continue}
+      for(let j=3;j>=0;j--){ if(((n>>j)&1)===0) bits++; else return bits; }
+    }
+    return bits;
+  }
+  async function solvePow(ch,bits){
+    let n=0;
+    while(true){
+      const h=await sha256Hex(`${ch}:${n}`);
+      if(countLeadingZeroBitsFromHex(h)>=bits) return n;
+      n++;
+    }
+  }
+  function makeNonce(){
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const a=new Uint8Array(16); crypto.getRandomValues(a);
+    return Array.from(a).map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+
+  
   // === Acronyme + chef (pour la liste de vote à droite) =====================
   const partyAcronym = (name) => {
     const map = [
@@ -226,36 +256,46 @@
 
   // === Vote =================================================================
   async function vote(ev){
-    ev.preventDefault();
-    const s=$$('input[name="candidate"]').find(x=>x.checked);
-    const msg=$('#msg');
-    if(!s) return;
+  ev.preventDefault();
+  const s = $$('input[name="candidate"]').find(x=>x.checked);
+  const msg = $('#msg');
+  if (!s) return;
 
+  try{
+    const me = await fetchJSON('/api/me');
+    if (me.oauthRequired && !me.authenticated) {
+      if (msg) msg.textContent = 'Connectez‑vous avec Google avant de voter.';
+      return;
+    }
+
+    // Payload requis par le backend
+    const payload = {
+      candidateId: Number(s.value),
+      nonce: makeNonce(),
+      ts: Date.now()
+    };
+
+    // PoW si disponible (sinon on ignore proprement)
     try{
-      const me = await fetchJSON('/api/me');
-      if (me.oauthRequired && !me.authenticated) {
-        if (msg) msg.textContent = 'Connectez‑vous avec Google avant de voter.';
-        return;
-      }
+      const { challenge, bits } = await fetchJSON('/api/pow');
+      const powNonce = await solvePow(challenge, bits);
+      payload.pow = { challenge, nonce: powNonce };
+    }catch{ /* /api/pow non présent → c'est OK */ }
 
-      if (msg) msg.textContent='Envoi…';
-      await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify({ candidateId:Number(s.value) }) });
-
-      if (msg) msg.textContent='Merci! Vote enregistré.';
-      await refresh();
-    }catch(e){
-      if (msg) msg.textContent=e.message||'Erreur lors du vote.';
+    // Turnstile si présent
+    if (window.turnstile && typeof window.turnstile.getResponse === 'function') {
+      try { payload.cf_turnstile_response = window.turnstile.getResponse(); } catch {}
     }
-  }
 
-  // === Attente Chart.js =====================================================
-  async function waitForChart(maxMs=3000){
-    const t0=performance.now();
-    while(typeof window.Chart==='undefined'){
-      if(performance.now()-t0>maxMs) throw new Error('Chart.js non chargé — vérifie /vendor/chart.umd.js');
-      await new Promise(r=>setTimeout(r,50));
-    }
+    if (msg) msg.textContent = 'Envoi…';
+    await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
+
+    if (msg) msg.textContent = 'Merci! Vote enregistré.';
+    await refresh();
+  }catch(e){
+    if (msg) msg.textContent = e.message || 'Erreur lors du vote.';
   }
+}
 
   // === Ripple petit effet boutons auth ======================================
   function attachRipple(el){
