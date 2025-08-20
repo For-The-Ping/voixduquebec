@@ -130,4 +130,35 @@
       await refresh(); setInterval(refresh,30000);
     }catch(e){ console.error(e); const msg=$('#msg'); if(msg) msg.textContent=e.message; }
   });
+
+// public/app.js
+async function envoyerVote(candidateId, pow) {
+  const payload = {
+    candidateId,
+    pow, // ton objet { challenge, nonce }
+    nonce: (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)) + Date.now(),
+    ts: Date.now(),
+    // cf_turnstile_response: await turnstile.getResponse() // seulement si activé
+  };
+
+  const res = await fetch('/api/vote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  console.log('Réponse vote:', data);
+}
+
+document.getElementById('voteBtn').addEventListener('click', async (e) => {
+  const candidateId = Number(e.target.dataset.id);
+
+  // récupère ton challenge PoW
+  const powChallenge = await fetch('/api/pow').then(r=>r.json());
+  const pow = { challenge: powChallenge.challenge, nonce: 12345 }; 
+  // 👆 remplace par ton vrai calcul PoW
+
+  await envoyerVote(candidateId, pow);
+});
 })();
