@@ -1,25 +1,4 @@
-# Node
 node_modules/
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-*.log
-
-# Env & secrets
-.env
-.env.*
-!.env.example
-
-# Build / coverage
-dist/
-build/
-coverage/
-
-# OS / editor
 .DS_Store
-Thumbs.db
-.vscode/
-
-# App data
-tallies.json
+.env
