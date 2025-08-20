@@ -18,6 +18,9 @@ html,body{
 
 .container{max-width:1200px;margin:24px auto;padding:0 16px}
 
+.md-actions .nav-link { color:#0B57D0; text-decoration:none; font-weight:700 }
+.md-actions .nav-link:hover { text-decoration:underline }
+
 /* App bar */
 .md-appbar{background:var(--md-surface);position:sticky;top:0;z-index:10;border-bottom:1px solid var(--md-outline)}
 .md-appbar__inner{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
