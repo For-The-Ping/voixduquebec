@@ -34,12 +34,8 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
 
 /* === Layout === */
 .container { flex: 1; padding: 1.5rem; max-width: 1200px; margin: auto; }
-.md-grid {
-  display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;
-}
-@media (max-width: 900px) {
-  .md-grid { grid-template-columns: 1fr; }
-}
+.md-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+@media (max-width: 900px) { .md-grid { grid-template-columns: 1fr; } }
 
 /* === Cards === */
 .md-card {
@@ -50,7 +46,7 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
   overflow: visible; /* évite les recouvrements étranges */
 }
 .chart-card { display: flex; align-items: center; justify-content: center; position: relative; }
-.vote-card { display: flex; flex-direction: column; gap: 1rem; position: relative; z-index: 1; }
+.vote-card  { display: flex; flex-direction: column; gap: 1rem; position: relative; z-index: 1; }
 .results-card { margin-top: 1.5rem; }
 
 /* === Forms === */
@@ -69,7 +65,7 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
   border-radius: 50%; background: var(--dot, var(--accent));
 }
 
-/* === Buttons (garde tes styles md-button) === */
+/* === Bouton "Voter" (original) === */
 .md-button {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0.7rem 1.2rem;
@@ -78,31 +74,57 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
   background: none; border: 2px solid var(--accent);
   color: var(--accent); cursor: pointer; transition: .2s;
 }
-.md-button--filled {
-  background: var(--accent); color: #fff;
-  border-color: var(--accent);
-}
-.md-button:hover { background: var(--accent-hover); color: #fff; border-color: var(--accent-hover); }
+.md-button--filled { background: var(--accent); color: #fff; border-color: var(--accent); }
+.md-button:hover   { background: var(--accent-hover); color: #fff; border-color: var(--accent-hover); }
+.vote-btn { width: 100%; margin-top: 0.5rem; }
 
-/* === Boutons auth (nouvelle disposition) === */
+/* === Boutons auth (même look & feedback que "Voter") === */
 .auth-actions{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
   margin: 10px 0 14px;
   position: relative; z-index: 10; /* prioritaire pour les clics */
 }
 .auth-actions .btn{
-  padding:10px 16px; border-radius:999px; font-weight:600;
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:10px 16px;
+  border-radius:999px; font-weight:700; font-size:0.95rem;
   border:2px solid #2b2b2b26; background:#fff; color:#111;
   box-shadow:0 1px 0 rgba(0,0,0,.06), 0 2px 10px rgba(0,0,0,.06);
-  pointer-events: auto; /* clique toujours possible */
+  transition: transform .06s ease, box-shadow .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
+  position:relative; overflow:hidden; /* pour le ripple */
+  pointer-events: auto; outline: none;
 }
 .auth-actions .btn.primary{ background:#111; color:#fff; border-color:#111; }
 .auth-actions .btn.outline{ background:#fff; color:#111; }
 
+.auth-actions .btn:hover{
+  box-shadow:0 2px 0 rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.12);
+}
+.auth-actions .btn:active{
+  transform: translateY(1px) scale(0.99);
+}
+.auth-actions .btn:focus-visible{
+  box-shadow:0 0 0 3px rgba(0,0,0,.1), 0 0 0 6px rgba(17,17,17,.18);
+}
 .auth-actions * { pointer-events: auto !important; } /* défensif */
 .auth-hint{ margin:0 0 0 4px; color:#6b7280; font-size:.92rem; }
 
 #btn-vote { position: relative; z-index: 10; } /* vote bouton cliquable */
+
+/* Ripple (même logique que pour "Voter" si tu ajoutes la classe is-rippling en JS) */
+.auth-actions .btn::after{
+  content:""; position:absolute; left:50%; top:50%;
+  width:0; height:0; border-radius:50%;
+  background: rgba(255,255,255,.35); transform: translate(-50%, -50%);
+  opacity:0; pointer-events:none;
+}
+.auth-actions .btn.outline::after{ background: rgba(0,0,0,.12); }
+.auth-actions .btn.is-rippling::after{ animation: btn-ripple .45s ease-out; }
+@keyframes btn-ripple{
+  0%   { opacity:.35; width:0; height:0; }
+  60%  { opacity:.25; width:220%; height:220%; }
+  100% { opacity:0;   width:260%; height:260%; }
+}
 
 /* === Messages & status === */
 .caption { font-size: 0.85rem; }
@@ -110,17 +132,9 @@ html, body { height: 100%; font-family: system-ui, sans-serif; background: var(-
 #msg { min-height: 1.2rem; margin-top: 0.25rem; color: var(--text); }
 #auth-status { font-style: italic; margin-left: 0.5rem; }
 
-/* Special vote btn */
-.vote-btn { width: 100%; margin-top: 0.5rem; }
-
 /* === Table === */
-.table {
-  width: 100%; border-collapse: collapse;
-  margin-top: 0.75rem;
-}
-.table th, .table td {
-  padding: 0.6rem; text-align: left;
-}
+.table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+.table th, .table td { padding: 0.6rem; text-align: left; }
 .table th { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
 .table tr:nth-child(even) { background: #f6f6f6; }
 
