@@ -6,6 +6,7 @@
   <title>Voix du Québec — Élection provinciale</title>
   <meta name="theme-color" content="#0B57D0" />
   <link rel="stylesheet" href="/styles.css" />
+  <!-- Chart.js servi localement via /vendor (voir server.js) -->
   <script defer src="/vendor/chart.umd.js"></script>
   <script defer src="/app.js"></script>
 </head>
@@ -13,7 +14,7 @@
   <header class="md-appbar elevation-3">
     <div class="md-appbar__inner">
       <div class="md-brand">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5f/Flag_of_Quebec.svg" alt="Drapeau du Québec" class="qc-flag" />
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5f/Flag_of_Quebec.svg" alt="QC" class="qc-flag" />
         <div class="md-brand__text">
           <div class="md-title">Voix du Québec</div>
           <div class="md-subtitle">Élection provinciale — <span class="election-date">5 octobre 2026</span></div>
@@ -24,13 +25,11 @@
 
   <main class="container">
     <section class="md-grid">
-      <!-- CAMEMBERT -->
       <article class="md-card elevation-2 chart-card">
-        <canvas id="chart" width="460" height="460" aria-label="Camembert des intentions"></canvas>
-        <div id="center-label" class="center-label" aria-hidden="true"></div>
+        <canvas id="chart" width="460" height="460"></canvas>
+        <div id="center-label" class="center-label"></div>
       </article>
 
-      <!-- FORMULAIRE DE VOTE -->
       <aside class="md-card elevation-2 vote-card">
         <form id="vote-form" class="form">
           <div id="candidate-list" class="candidate-list"></div>
@@ -38,16 +37,15 @@
           <button type="submit" class="md-button md-button--filled ripple vote-btn">
             <span class="md-button__label">Voter</span>
           </button>
-          <p id="msg" class="caption muted" role="status"></p>
+          <p id="msg" class="caption muted"></p>
         </form>
         <details class="expando">
           <summary>Pourquoi ces limites ?</summary>
-          <p class="body">PoW + limites session/IP pour freiner le spam.</p>
+          <p class="body">Preuve de travail et quotas session/IP pour limiter le spam.</p>
         </details>
       </aside>
     </section>
 
-    <!-- RÉSULTATS -->
     <section class="md-card elevation-2 results-card">
       <h2 class="section-title">Résultats en direct</h2>
       <div id="results-table"></div>
