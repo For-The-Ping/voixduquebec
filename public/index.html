@@ -7,8 +7,10 @@
   <meta name="theme-color" content="#0B57D0" />
   <link rel="stylesheet" href="/styles.css" />
   <script defer src="/vendor/chart.umd.js"></script>
-  <!-- Turnstile (optionnel) -->
+
+  <!-- (Optionnel) Cloudflare Turnstile ; laisse si non utilisé -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
   <script defer src="/app.js"></script>
 </head>
 <body>
@@ -35,30 +37,17 @@
         <form id="vote-form" class="form">
           <div id="candidate-list" class="candidate-list"></div>
 
-          <!-- Vérification email (OTP) -->
-          <div class="otp-block">
-            <label class="label">Votre courriel (pour 1 personne = 1 vote) :</label>
-            <div class="otp-row">
-              <input id="email" type="email" placeholder="votre@email"
-                     class="input" autocomplete="email" />
-              <button id="otp-send" type="button" class="md-button">Envoyer code</button>
-            </div>
-            <div class="otp-row">
-              <input id="otp-code" type="text" inputmode="numeric" pattern="[0-9]*"
-                     placeholder="Code à 6 chiffres" class="input small" />
-              <button id="otp-verify" type="button" class="md-button">Vérifier</button>
-              <span id="otp-status" class="caption muted"></span>
-            </div>
+          <!-- Connexion OAuth -->
+          <div class="oauth-row">
+            <button type="button" class="md-button" id="login-google">Se connecter avec Google</button>
+            <button type="button" class="md-button" id="logout-btn">Se déconnecter</button>
+            <span id="auth-status" class="caption muted"></span>
           </div>
 
           <div class="push"></div>
 
-        <div class="oauth-row">
-  <button type="button" class="md-button" onclick="location.href='/auth/google'">Se connecter avec Google</button>
-  <button type="button" class="md-button" onclick="location.href='/auth/microsoft'">Se connecter avec Microsoft</button>
-  <button type="button" class="md-button" id="logout-btn">Se déconnecter</button>
-  <span id="auth-status" class="caption muted"></span>
-</div>
+          <!-- Turnstile (optionnel, remplace SITE_KEY si tu l’utilises) -->
+          <div class="cf-turnstile" data-sitekey="SITE_KEY" data-theme="auto" data-size="flexible"></div>
 
           <button type="submit" class="md-button md-button--filled ripple vote-btn">
             <span class="md-button__label">Voter</span>
@@ -67,7 +56,10 @@
         </form>
         <details class="expando">
           <summary>Pourquoi ces limites ?</summary>
-          <p class="body">Email (ou session), preuve de travail, captcha et quotas IP pour limiter le spam. Politique REPLACE : on peut changer d’avis.</p>
+          <p class="body">
+            Preuve de travail, quotas session/IP, captcha (optionnel) et connexion Google.
+            Politique <b>REPLACE</b> : vous pouvez changer d’avis, le total est ajusté.
+          </p>
         </details>
       </aside>
     </section>
