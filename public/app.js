@@ -105,20 +105,30 @@
       }
     });
 
-    const center = $('#center-label');
-    if (center) {
-      if (leader && total > 0) {
-        center.innerHTML = `
-          <div class="lead">${leader.percent.toFixed(1)}%</div>
-          <div class="sub">en tête — ${leader.name}<br/>
-            <small>Total votes: ${total}</small>
-          </div>
-        `;
-      } else {
-        center.innerHTML = `<div class="lead">0%</div><div class="sub">Aucun vote pour l'instant</div>`;
-      }
+   const center = $('#center-label');
+if (center) {
+  if (total > 0) {
+    const max = Math.max(...data.results.map(r => r.votes));
+    const pct = ((max / total) * 100).toFixed(1);
+
+    if (data.isTie && data.leaders && data.leaders.length > 1) {
+      const names = data.leaders.map(l => l.name).join(' / ');
+      center.innerHTML = `
+        <div class="lead">${pct}%</div>
+        <div class="sub">égalité — ${names}<br/><small>Total votes: ${total}</small></div>
+      `;
+    } else if (data.leader) {
+      center.innerHTML = `
+        <div class="lead">${data.leader.percent.toFixed(1)}%</div>
+        <div class="sub">en tête — ${data.leader.name}<br/><small>Total votes: ${total}</small></div>
+      `;
+    } else {
+      center.innerHTML = `<div class="lead">0%</div><div class="sub">Aucun vote pour l'instant</div>`;
     }
+  } else {
+    center.innerHTML = `<div class="lead">0%</div><div class="sub">Aucun vote pour l'instant</div>`;
   }
+}
 
   // ---- Data flow ----
 
