@@ -1,8 +1,0 @@
-User-agent: *
-Allow: /
-
-# Bloque les chemins techniques si besoin
-Disallow: /admin/
-Disallow: /api/private/
-
-Sitemap: https://voixduquebec.ca/sitemap.xml
