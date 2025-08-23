@@ -1,14 +1,16 @@
 /**
  * Voix du Québec — Sondage provincial
- * Express + anti-spam + persistance JSON (tallies.json)
+ * Express + PoW + anti-spam + persistance JSON (tallies.json)
  * Auth: Google OAuth (Passport) pour 1 personne = 1 parti
  * Politique: REPLACE (on peut changer d'avis)
  */
 
 const express = require('express');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -17,12 +19,14 @@ const { DateTime } = require('luxon');
 /* ---------- Config ---------- */
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
+app.listen(PORT, HOST, () => console.log(`Serveur prêt sur ${process.env.BASE_URL || `http://${HOST}:${PORT}`}`));
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-session-secret';
-const SESSION_COOKIE = process.env.SESSION_COOKIE || 'v_sid';
+const SESSION_COOKIE = process.env.SESSION_COOKIE || 'v_sid'; // ton cookie de session léger
+const POW_BITS = Number(process.env.POW_BITS || 18);
 const TZ = process.env.TZ || 'America/Toronto';
 const DEMO = process.env.DEMO_MODE === '1';
-const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || '';
+const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY || ''; // optionnel
 const OAUTH_REQUIRED = process.env.OAUTH_REQUIRED === '1';
 const VOTE_POLICY = 'REPLACE';
 
@@ -36,19 +40,18 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '64kb' }));
 app.use(cookieParser(SESSION_SECRET));
 
-/* ---------- Session (Redis) ---------- */
-const session = require('express-session');
-const RedisStore = require('connect-redis').default;
-const { createClient } = require('redis');
-const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://127.0.0.1:6379' });
-redisClient.connect().catch(console.error);
-
+// Session pour Passport (cookie distinct 'connect.sid')
 app.use(session({
-  store: new RedisStore({ client: redisClient }),
-  secret: process.env.SESSION_SECRET || 'changeme',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // true si HTTPS
+  proxy: true,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: !!process.env.COOKIE_SECURE || /^https:\/\//.test(BASE_URL),
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 7 jours
+  }
 }));
 
 app.use(passport.initialize());
@@ -67,12 +70,14 @@ const candidates = [
   { id:1, name:'Coalition Avenir Québec (François Legault)',          color:'#0aa2c0' },
   { id:2, name:'Parti Québécois (Paul St‑Pierre Plamondon)',          color:'#1b4db3' },
   { id:3, name:'Parti libéral du Québec (Pablo Rodriguez)',           color:'#d32f2f' },
-  { id:4, name:'Québec solidaire (Guillaume Cliche‑Rivard intérim)',  color:'#f36f21' },
+  { id:4, name:'Québec solidaire (Gabriel Nadeau‑Dubois)',            color:'#f36f21' },
   { id:5, name:'Parti conservateur du Québec (Éric Duhaime)',         color:'#1d2e6e' },
   { id:6, name:'Parti Vert du Québec (Alex Tyrrell)',                 color:'#2e7d32' },
 ];
 for (const c of candidates) if (!DATA.votes[c.id]) DATA.votes[c.id] = 0;
+
 // 1 personne => 1 parti
+// voterChoices: { [voterId]: candidateId }
 if (!DATA.voterChoices) DATA.voterChoices = {};
 saveData(DATA);
 
@@ -98,8 +103,31 @@ function ensureLightSession(req,res){
   return sid;
 }
 function getFallbackVoterId(req, sid){
+  // fallback si non connecté: session+UA hashée (moins robuste)
   const ua = (req.get('user-agent') || '').slice(0,256);
   return crypto.createHmac('sha256', SESSION_SECRET).update(`${sid}::${ua}`).digest('hex');
+}
+
+/* ---------- PoW ---------- */
+function leadingZeroBitsHex(hex){
+  let bits = 0;
+  for (let i=0;i<hex.length;i++){
+    const n = parseInt(hex[i],16);
+    if (n===0){ bits+=4; continue; }
+    for (let j=3;j>=0;j--){
+      if (((n>>j)&1)===0) bits++; else return bits;
+    }
+  }
+  return bits;
+}
+function verifyPowPayload(pow, requiredBits = POW_BITS){
+  if (!pow || typeof pow.challenge!=='string' || !Number.isInteger(pow.nonce)) return false;
+  const h = crypto.createHash('sha256').update(`${pow.challenge}:${pow.nonce}`).digest('hex');
+  return leadingZeroBitsHex(h) >= requiredBits;
+}
+function makeChallenge(req){
+  const sid = ensureLightSession(req, req.res);
+  return crypto.randomBytes(16).toString('hex') + ':' + sid; // challenge lié à la session
 }
 
 /* ---------- Anti‑replay (nonce + ts) ---------- */
@@ -140,7 +168,7 @@ async function verifyTurnstile(req,res,next){
   }
 }
 
-/* ---------- Limites anti‑spam ---------- */
+/* ---------- Limites anti‑spam (IP & session) ---------- */
 const ipBuckets = new Map();      // ip -> {windowStart,count10m,day,countDay}
 const sessionBuckets = new Map(); // sid -> {lastVoteTs,day,countDay}
 const MIN_INTERVAL_MS     = DEMO ? 3000  : 60000; // 1 min / session
@@ -180,9 +208,12 @@ passport.use(new GoogleStrategy(
     callbackURL: `${BASE_URL}/auth/google/callback`
   },
   (accessToken, refreshToken, profile, done) => {
+    // profile.id = identifiant stable Google
+    // On ne stocke rien côté DB ici; la session suffit
     return done(null, { id: profile.id, provider: 'google' });
   }
 ));
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done)  => done(null, obj));
 
@@ -193,36 +224,21 @@ app.get('/api/me', (req,res)=>{
 
 app.get('/auth/google', passport.authenticate('google', { scope: ['openid', 'email', 'profile'] }));
 
-// ✅ Migration fallback -> Google au moment du login
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/' }),
-  (req,res) => {
-    try {
-      const sid = ensureLightSession(req, res);
-      const fallbackId = getFallbackVoterId(req, sid);
-      const googleId   = `google:${req.user.id}`;
-
-      if (!DATA.voterChoices[googleId] && DATA.voterChoices[fallbackId]) {
-        DATA.voterChoices[googleId] = DATA.voterChoices[fallbackId]; // transfert identité
-        delete DATA.voterChoices[fallbackId];
-        saveData(DATA);
-        console.log('[MIGRATE]', { from:'fallback', to:googleId, candidateId: DATA.voterChoices[googleId] });
-      }
-    } catch (e) {
-      console.error('[OAUTH CALLBACK MIGRATE ERR]', e);
-    }
-    return res.redirect('/');
-  }
+  (req,res) => res.redirect('/')
 );
 
 app.post('/auth/logout', (req,res)=>{
-  req.logout(() => res.json({ ok:true }));
+  req.logout(() => {
+    res.json({ ok:true });
+  });
 });
 
-/* ---------- API ---------- */
+/* ---------- API existantes ---------- */
 app.get('/api/health', (req,res)=>{
   res.json({
-    ok:true, today: todayStr(), demo: DEMO,
+    ok:true, pow_bits: POW_BITS, today: todayStr(), demo: DEMO,
     turnstile: !!TURNSTILE_SECRET, vote_policy: VOTE_POLICY, oauthRequired: !!OAUTH_REQUIRED
   });
 });
@@ -242,71 +258,47 @@ app.get('/api/results', (req,res)=>{
   res.json({ total, leader, isTie: leaders.length > 1, leaders, results });
 });
 
-// 🔵 Vote courant de l'utilisateur connecté
-app.get('/api/myvote', (req,res) => {
-  if (!req.user) return res.json({ authenticated: false, vote: null });
-  const googleId = `google:${req.user.id}`;
-  const candidateId = DATA.voterChoices[googleId] || null;
-  if (!candidateId) return res.json({ authenticated: true, vote: null });
-  const cand = candidates.find(c => c.id === candidateId) || null;
-  return res.json({
-    authenticated: true,
-    vote: cand ? { id: cand.id, name: cand.name, color: cand.color } : null
-  });
-});
+app.get('/api/pow', (req,res)=> res.json({ challenge: makeChallenge(req), bits: POW_BITS }));
 
-// Ordre: quotas -> captcha -> anti-replay -> OAuth -> REPLACE
+// Ordre: quotas -> captcha -> anti-replay -> PoW -> OAuth requirement -> Politique REPLACE
 app.post('/api/vote', checkLimits, verifyTurnstile, verifyReplay, (req,res)=>{
   try{
-    const { candidateId } = req.body || {};
+    const { candidateId, pow } = req.body || {};
     if (!Number.isInteger(candidateId)) return res.status(400).json({ error:'candidateId invalide' });
     if (!candidates.find(c => c.id === candidateId)) return res.status(404).json({ error:'Candidat inconnu' });
+    if (!verifyPowPayload(pow)) return res.status(400).json({ error:'Preuve de travail invalide' });
 
     const sid = ensureLightSession(req, res);
 
+    // Exiger OAuth si demandé
     if (OAUTH_REQUIRED && !req.user) {
       return res.status(403).json({ error:'Connectez-vous avec Google pour voter.' });
     }
 
-    // Nettoyage: si connecté et un vieux vote fallback existe, on l'élimine proprement
-    if (req.user) {
-      const voterIdGoogle = `google:${req.user.id}`;
-      const voterIdFallback = getFallbackVoterId(req, sid);
-      if (DATA.voterChoices[voterIdFallback]) {
-        const oldCand = DATA.voterChoices[voterIdFallback];
-        if (!DATA.voterChoices[voterIdGoogle]) {
-          DATA.voterChoices[voterIdGoogle] = oldCand; // transfert identité, totaux inchangés
-          delete DATA.voterChoices[voterIdFallback];
-        } else {
-          if (DATA.votes[oldCand] > 0) DATA.votes[oldCand] -= 1; // retire doublon éventuel
-          delete DATA.voterChoices[voterIdFallback];
-        }
-        saveData(DATA);
-      }
-    }
-
+    // Identité votant
     const voterId = req.user ? `google:${req.user.id}` : getFallbackVoterId(req, sid);
     const prev = DATA.voterChoices[voterId];
 
-    const candObj = candidates.find(c => c.id === candidateId);
-
     if (prev && prev !== candidateId) {
+      // REPLACE: déplacer le vote
       if (DATA.votes[prev] && DATA.votes[prev] > 0) DATA.votes[prev] -= 1;
       DATA.votes[candidateId] = (DATA.votes[candidateId] || 0) + 1;
       DATA.voterChoices[voterId] = candidateId;
       saveData(DATA);
-      return res.json({ ok: true, switched: true, choice: { id: candObj.id, name: candObj.name, color: candObj.color } });
+      console.log('[VOTE SWITCH]', { ip:getClientIp(req), voterId, from: prev, to: candidateId });
+      return res.json({ ok: true, switched: true });
     }
 
     if (!prev) {
       DATA.votes[candidateId] = (DATA.votes[candidateId] || 0) + 1;
       DATA.voterChoices[voterId] = candidateId;
       saveData(DATA);
-      return res.json({ ok: true, first: true, choice: { id: candObj.id, name: candObj.name, color: candObj.color } });
+      console.log('[VOTE OK]', { ip:getClientIp(req), voterId, candidateId, total: DATA.votes[candidateId] });
+      return res.json({ ok: true, first: true });
     }
 
-    // même parti = no-op
-    return res.json({ ok: true, duplicate: true, choice: { id: candObj.id, name: candObj.name, color: candObj.color } });
+    // Revoter pour le même parti = no‑op
+    return res.json({ ok: true, duplicate: true });
   }catch(e){
     console.error('[VOTE ERR]', e);
     res.status(500).json({ error:'Erreur serveur' });
@@ -314,8 +306,4 @@ app.post('/api/vote', checkLimits, verifyTurnstile, verifyReplay, (req,res)=>{
 });
 
 /* ---------- Boot ---------- */
-const http = require("http");
-const server = http.createServer(app);
-server.listen(PORT, HOST, () => {
-  console.log(`Serveur prêt sur ${process.env.BASE_URL || `http://${HOST}:${PORT}`}`);
-});
+// app.listen(PORT, ()=>console.log(`Serveur prêt sur ${BASE_URL}`));

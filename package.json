@@ -14,12 +14,14 @@
     "node": ">=18"
   },
   "dependencies": {
-  "chart.js": "^4.4.3",
-  "cookie-parser": "^1.4.6",
-  "express": "^4.19.2",
-  "luxon": "^3.4.4",
-  "passport": "^0.7.0",
-  "passport-google-oauth20": "^2.0.0",
-  "express-session": "^1.17.3"
+    "chart.js": "^4.4.3",
+    "connect-redis": "^7.1.1",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "express-session": "^1.18.2",
+    "luxon": "^3.4.4",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "redis": "^4.7.1"
   }
 }

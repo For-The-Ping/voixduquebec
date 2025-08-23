@@ -6,7 +6,7 @@
 
   /* Chart.js (labels dessinés dans le canvas) */
   --pie-label-color:#fff;
-  --pie-label-font-size:16;   /* px */
+  --pie-label-font-size:35;   /* px */
 }
 
 /* Reset de base */
@@ -88,6 +88,13 @@ html,body{height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,
 .table th{color:var(--muted);font-weight:600;font-size:.9rem}
 .table tr:nth-child(even){background:#f6f6f6}
 
+/* Agrandir uniquement "Parti / Candidat" */
+.table th:first-child {
+  font-size: 1.1rem;   /* ajuste la taille à ton goût */
+  color: var(--text);  /* facultatif : couleur plus visible que --muted */
+}
+
+
 /* Footer */
 .footer{text-align:center;padding:.75rem;color:var(--muted);font-size:.85rem;margin-top:1.5rem}
 
@@ -95,4 +102,29 @@ html,body{height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,
 @media (max-width:560px){
   .auth-actions{flex-direction:column;align-items:stretch}
   .chart-legend{grid-template-columns:1fr} /* 1 colonne sur mobile */
+}
+
+/* Footer */
+.footer-contact a {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: inherit;              /* garde la même couleur que ton footer */
+  text-decoration: none;
+  position: relative;
+}
+
+.footer-contact a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 2px;
+  background-color: currentColor; /* reprend la couleur du texte */
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.footer-contact a:hover::after {
+  transform: scaleX(1); /* animation soulignement au hover */
 }

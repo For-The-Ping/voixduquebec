@@ -21,29 +21,7 @@
   const pickColor = (name, fb='#888') =>
     (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
 
-  // ===== Anti‑replay + PoW utils ============================================
-  async function sha256Hex(s){
-    const b=new TextEncoder().encode(s);
-    const d=await crypto.subtle.digest('SHA-256', b);
-    return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join('');
-  }
-  function countLeadingZeroBitsFromHex(hex){
-    let bits=0;
-    for(let i=0;i<hex.length;i++){
-      const n=parseInt(hex[i],16);
-      if(n===0){bits+=4;continue}
-      for(let j=3;j>=0;j--){ if(((n>>j)&1)===0) bits++; else return bits; }
-    }
-    return bits;
-  }
-  async function solvePow(ch,bits){
-    let n=0;
-    while(true){
-      const h=await sha256Hex(`${ch}:${n}`);
-      if(countLeadingZeroBitsFromHex(h)>=bits) return n;
-      n++;
-    }
-  }
+  // ===== Nonce pour anti‑replay =============================================
   function makeNonce(){
     if (crypto.randomUUID) return crypto.randomUUID();
     const a=new Uint8Array(16); crypto.getRandomValues(a);
@@ -84,7 +62,7 @@
       const color  = c.color || pickColor(c.name);
       const acro   = partyAcronym(c.name);
       const leader = (c.leader && c.leader.trim()) || extractLeader(c.name);
-      const display = leader ? `${acro} ${leader}` : acro;
+      const display = leader ? `<strong>${acro}</strong> ${leader}` : acro;
 
       const label = document.createElement('label');
       label.className='candidate';
@@ -123,114 +101,85 @@
     id:'sliceLabels',
     afterDatasetsDraw(chart){
       const {ctx}=chart, ds=chart.data?.datasets?.[0];
-      if(!ds) return; 
-      const meta=chart.getDatasetMeta(0), total=(ds.data||[]).reduce((a,b)=>a+Number(b||0),0)||0;
+      if(!ds) return;
+      const meta  = chart.getDatasetMeta(0);
+      const total = (ds.data||[]).reduce((a,b)=>a+Number(b||0),0)||0;
 
       ctx.save();
-      ctx.fillStyle=PIE_LABEL_COLOR();
       ctx.textAlign='center';
       ctx.textBaseline='middle';
-      ctx.font=`700 ${PIE_LABEL_SIZE()}px ui-sans-serif,system-ui`;
+      ctx.font = `700 ${PIE_LABEL_SIZE()}px ui-sans-serif,system-ui`;
 
       meta.data.forEach((arc,i)=>{
-        const v=Number(ds.data[i]||0); if(!v||!total) return;
-        const pct=v/total*100; if(pct<3) return;
-        const {x,y,startAngle,endAngle,outerRadius}=arc;
-        const a=(startAngle+endAngle)/2;
-        const r=outerRadius*0.62;
-        ctx.fillText(`${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`,
-          x+Math.cos(a)*r, y+Math.sin(a)*r);
+        const v = Number(ds.data[i]||0); if(!v||!total) return;
+        const pct = v/total*100;
+        if (pct < 3) return; // évite les micro-tranches illisibles
+
+        const {x,y,startAngle,endAngle,outerRadius} = arc;
+        const a = (startAngle+endAngle)/2;
+        const r = outerRadius*0.62;
+        const label = `${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`;
+        const lx = x + Math.cos(a)*r, ly = y + Math.sin(a)*r;
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0,0,0,.35)';
+        ctx.fillStyle   = PIE_LABEL_COLOR();
+        ctx.strokeText(label, lx, ly);
+        ctx.fillText(label, lx, ly);
       });
       ctx.restore();
     }
   };
 
-  // ===== Légende HTML 2 colonnes (sous le chart) ============================
-  function ensureLegendContainer(){
-    let el = $('#chart-legend');
-    if (!el){
-      el = document.createElement('div');
-      el.id = 'chart-legend';
-      el.className = 'chart-legend';
-      const card = $('.chart-card') || $('#chart')?.parentElement;
-      if (card) card.appendChild(el);
-    }
-    return el;
-  }
-  const htmlLegendPlugin = {
-    id: 'htmlLegend2Cols',
-    afterUpdate(chart){
-      const container = ensureLegendContainer();
-      container.innerHTML = '';
-
-      const items = chart.options.plugins.legend.labels.generateLabels(chart);
-      const mid = Math.ceil(items.length / 2);
-
-      const colLeft  = document.createElement('ul');
-      const colRight = document.createElement('ul');
-      container.appendChild(colLeft);
-      container.appendChild(colRight);
-
-      items.forEach((item, i) => {
-        const ul = i < mid ? colLeft : colRight;
-
-        const li  = document.createElement('li');
-        const box = document.createElement('span');
-        box.className = 'swatch';
-        box.style.background = item.fillStyle;
-
-        const txt = document.createElement('span');
-        txt.textContent = item.text;
-
-        li.appendChild(box);
-        li.appendChild(txt);
-
-        li.onclick = () => { chart.toggleDataVisibility(item.index); chart.update(); };
-        ul.appendChild(li);
-      });
-    }
-  };
-
-  // ===== Camembert ==========================================================
+  // ===== Camembert (sans légende) ============================================
   function drawPie(data){
-    const c=$('#chart'); if (!c) return;
-    const labels=data.results.map(r=>r.name);           // légende = noms complets
-    const values=data.results.map(r=>r.votes);
-    const colors=data.results.map(r=>r.color||pickColor(r.name));
+    const c = $('#chart'); if (!c) return;
+    const labels = data.results.map(r=>r.name);
+    const values = data.results.map(r=>r.votes);
+    const colors = data.results.map(r=>r.color||pickColor(r.name));
 
-    if(chart) chart.destroy();
-    ensureLegendContainer();
+    if (chart) chart.destroy();
 
-    chart=new Chart(c.getContext('2d'),{
-      type:'pie',
-      data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:0 }] },
-      options:{ 
-        responsive:true,
-        plugins:{ legend:{ display:false }, tooltip:{enabled:true} }
+    chart = new Chart(c.getContext('2d'), {
+      type: 'pie',
+      data: { labels, datasets:[{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: true }
+        }
       },
-      plugins:[sliceLabels, htmlLegendPlugin]
+      plugins: [sliceLabels]
     });
   }
 
-  // ===== Refresh global =====================================================
-  async function refresh(){
-    const cands = await fetchJSON('/api/candidates');
-    renderCandidates(cands);
+  // ===== "Vote actuel" (UI) ==================================================
+  const currentVoteEl   = document.getElementById('current-vote');
+  const currentVoteDot  = document.getElementById('current-vote-dot');
+  const currentVoteAcr  = document.getElementById('current-vote-acronym');
 
-    const data = await fetchJSON('/api/results');
-    data.results = data.results.map(r=>({ ...r, color:r.color||pickColor(r.name) }));
-    renderTable(data.results);
-    drawPie(data);
-
-    await updateAuthStatus();
+  function renderCurrentVote(vote) {
+    if (!currentVoteEl) return;
+    if (!vote) {
+      currentVoteEl.hidden = false;
+      if (currentVoteDot) currentVoteDot.style.background = '#bbb';
+      if (currentVoteAcr) currentVoteAcr.textContent = 'aucun vote enregistré';
+      return;
+    }
+    currentVoteEl.hidden = false;
+    const name = vote.name || '';
+    const color = vote.color || pickColor(name);
+    if (currentVoteDot) currentVoteDot.style.background = color;
+    if (currentVoteAcr) currentVoteAcr.textContent = partyAcronym(name);
   }
 
-  // ===== Auth UI ============================================================
-  async function updateAuthStatus(){
-    try{
+  async function loadMyVoteIfConnected() {
+    try {
       const me = await fetchJSON('/api/me');
       const loginBtn  = $('#loginBtn');
       const logoutBtn = $('#logoutBtn');
+
       if (loginBtn && logoutBtn) {
         if (me.authenticated) {
           loginBtn.style.display  = 'none';
@@ -240,17 +189,49 @@
           logoutBtn.style.display = 'none';
         }
       }
-      return me;
-    }catch{
-      return { authenticated:false, oauthRequired:true };
+
+      if (!me.authenticated) {
+        if (currentVoteEl) currentVoteEl.hidden = true; // cache si non connecté
+        return;
+      }
+
+      const data = await fetchJSON('/api/myvote');
+      if (data && data.authenticated) {
+        renderCurrentVote(data.vote || null);
+      } else {
+        if (currentVoteEl) currentVoteEl.hidden = true;
+      }
+    } catch {
+      if (currentVoteEl) currentVoteEl.hidden = true;
     }
   }
-  async function logout(){
-    await fetch('/auth/logout', { method:'POST' });
-    await updateAuthStatus();
+
+  // ===== Refresh global =====================================================
+  async function refresh(options = {}) {
+    const { currentChoice } = options;
+
+    const cands = await fetchJSON('/api/candidates');
+    renderCandidates(cands);
+
+    const data = await fetchJSON('/api/results');
+    data.results = data.results.map(r=>({ ...r, color:r.color||pickColor(r.name) }));
+    renderTable(data.results);
+    drawPie(data);
+
+    if (currentChoice) {
+      renderCurrentVote(currentChoice);
+    } else {
+      await loadMyVoteIfConnected();
+    }
   }
 
-  // ===== Vote (avec nonce/ts + PoW/Turnstile optionnels) ====================
+  // ===== Auth UI ============================================================
+  async function logout(){
+    await fetch('/auth/logout', { method:'POST' });
+    await loadMyVoteIfConnected();
+  }
+
+  // ===== Vote (anti‑replay + Turnstile optionnel) ============================
   async function vote(ev){
     ev.preventDefault();
     const s=$$('input[name="candidate"]').find(x=>x.checked);
@@ -270,25 +251,21 @@
         ts: Date.now()
       };
 
-      // PoW si dispo
-      try{
-        const { challenge, bits } = await fetchJSON('/api/pow');
-        const powNonce = await solvePow(challenge, bits);
-        payload.pow = { challenge, nonce: powNonce };
-      }catch{/* pas de /api/pow → ignore */}
-
       // Turnstile si présent
       if (window.turnstile && typeof window.turnstile.getResponse === 'function') {
         try { payload.cf_turnstile_response = window.turnstile.getResponse(); } catch {}
       }
 
       if (msg) msg.textContent='Envoi…';
-      await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
+      const resp = await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
 
       if (msg) msg.textContent='Merci! Vote enregistré.';
-      await refresh();
+      await refresh({ currentChoice: resp && resp.choice ? resp.choice : null });
     }catch(e){
-      if (msg) msg.textContent=e.message||'Erreur lors du vote.';
+      if (msg) {
+        const m = (e && e.message) ? String(e.message) : 'Erreur lors du vote.';
+        try { msg.textContent = JSON.parse(m).error || m; } catch { msg.textContent = m; }
+      }
     }
   }
 
@@ -318,7 +295,7 @@
 
       const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
       const lg = $('#loginBtn');  if (lg) { lg.addEventListener('click', ()=> location.href='/auth/google'); attachRipple(lg); }
-      const lo = $('#logoutBtn'); if (lo) { lo.addEventListener('click', logout);                             attachRipple(lo); }
+      const lo = $('#logoutBtn'); if (lo) { lo.addEventListener('click', (e)=>{ e.preventDefault(); logout(); }); attachRipple(lo); }
 
       await refresh();
       setInterval(refresh,30000);
