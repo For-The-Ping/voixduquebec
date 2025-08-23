@@ -1,0 +1,130 @@
+/* === Variables couleurs & tailles === */
+:root{
+  --bg-0:#ffffff; --bg-1:#f6f6f6; --grid:#e0e0e0; --text:#222; --muted:#666;
+  --accent:#444; --accent-hover:#000; --accent-danger:#cc0000;
+  --card:#ffffff; --shadow:0 4px 12px rgba(0,0,0,.08); --radius:.75rem;
+
+  /* Chart.js (labels dessinés dans le canvas) */
+  --pie-label-color:#fff;
+  --pie-label-font-size:35;   /* px */
+}
+
+/* Reset de base */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;background:var(--bg-0);color:var(--text)}
+
+/* === En-tête === */
+.md-appbar{background:#fff;color:var(--text);padding:.75rem 1.25rem;border-bottom:1px solid var(--grid)}
+.md-appbar__inner{display:flex;align-items:center;justify-content:space-between}
+.md-brand{display:flex;align-items:center;gap:.75rem}
+.qc-flag{height:32px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.md-brand__text{display:flex;flex-direction:column}
+.md-title{font-weight:600;font-size:1.25rem}
+.md-subtitle{font-size:.9rem;color:var(--muted)}
+
+/* === Layout === */
+.container{flex:1;padding:1.5rem;max-width:1200px;margin:auto}
+.md-grid{display:grid;grid-template-columns:2fr 1fr;gap:1.5rem}
+@media (max-width:900px){.md-grid{grid-template-columns:1fr}}
+
+/* === Cards === */
+.md-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;overflow:visible}
+.results-card{margin-top:1.5rem}
+
+/* Camembert : empile canvas + légende */
+.chart-card{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:1rem 1rem 1.25rem;
+}
+.chart-card canvas{display:block;max-width:720px;width:100%}
+
+/* Légende HTML (2 colonnes) injectée par app.js */
+.chart-legend{
+  display:grid; grid-template-columns:1fr 1fr; gap:8px 24px;
+  margin-top:12px; width:100%; max-width:720px;
+}
+.chart-legend ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.chart-legend li{display:flex;align-items:center;gap:8px;font-size:16px;line-height:1.2}
+.chart-legend .swatch{display:inline-block;width:22px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,.15);flex:0 0 auto}
+
+/* === Form vote (colonne de droite) === */
+.vote-card{display:flex;flex-direction:column;gap:1rem;position:relative;z-index:1}
+.form{display:flex;flex-direction:column;gap:.75rem}
+.candidate-list{display:flex;flex-direction:column;gap:.6rem;position:relative;z-index:0}
+.candidate{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:1rem;padding:.35rem .5rem;border-radius:6px;transition:background .2s}
+.candidate:hover{background:var(--bg-1)}
+.candidate input[type="checkbox"]{accent-color:var(--accent)}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--dot,var(--accent))}
+
+/* === Boutons === */
+.md-button{display:inline-flex;align-items:center;justify-content:center;padding:.7rem 1.2rem;border-radius:9999px;font-weight:600;font-size:.95rem;background:none;border:2px solid var(--accent);color:var(--accent);cursor:pointer;transition:.2s}
+.md-button--filled{background:var(--accent);color:#fff;border-color:var(--accent)}
+.md-button:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}
+.vote-btn{width:100%;margin-top:.5rem}
+
+/* Auth buttons (même feedbacks + ripple) */
+.auth-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 14px;position:relative;z-index:10}
+.auth-actions .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:999px;font-weight:700;font-size:.95rem;border:2px solid #2b2b2b26;background:#fff;color:#111;box-shadow:0 1px 0 rgba(0,0,0,.06),0 2px 10px rgba(0,0,0,.06);transition:transform .06s ease,box-shadow .2s ease,background .2s ease,color .2s ease,border-color .2s ease;position:relative;overflow:hidden;pointer-events:auto;outline:none;cursor:pointer}
+.auth-actions .btn.primary{background:#111;color:#fff;border-color:#111}
+.auth-actions .btn.outline{background:#fff;color:#111}
+.auth-actions .btn:hover{box-shadow:0 2px 0 rgba(0,0,0,.08),0 6px 20px rgba(0,0,0,.12)}
+.auth-actions .btn:active{transform:translateY(1px) scale(.99)}
+.auth-actions .btn:focus-visible{box-shadow:0 0 0 3px rgba(0,0,0,.1),0 0 0 6px rgba(17,17,17,.18)}
+.auth-actions .btn::after{content:"";position:absolute;left:50%;top:50%;width:0;height:0;border-radius:50%;background:rgba(255,255,255,.35);transform:translate(-50%,-50%);opacity:0;pointer-events:none}
+.auth-actions .btn.outline::after{background:rgba(0,0,0,.12)}
+.auth-actions .btn.is-rippling::after{animation:btn-ripple .45s ease-out}
+@keyframes btn-ripple{0%{opacity:.35;width:0;height:0}60%{opacity:.25;width:220%;height:220%}100%{opacity:0;width:260%;height:260%}}
+#loginBtn,#logoutBtn{cursor:pointer}
+
+/* Messages & divers */
+.caption{font-size:.85rem}
+.muted{color:var(--muted)}
+#msg{min-height:1.2rem;margin-top:.25rem;color:var(--text)}
+#auth-status{font-style:italic;margin-left:.5rem}
+
+/* Table des résultats */
+.table{width:100%;border-collapse:collapse;margin-top:.75rem}
+.table th,.table td{padding:.6rem;text-align:left}
+.table th{color:var(--muted);font-weight:600;font-size:.9rem}
+.table tr:nth-child(even){background:#f6f6f6}
+
+/* Agrandir uniquement "Parti / Candidat" */
+.table th:first-child {
+  font-size: 1.1rem;   /* ajuste la taille à ton goût */
+  color: var(--text);  /* facultatif : couleur plus visible que --muted */
+}
+
+
+/* Footer */
+.footer{text-align:center;padding:.75rem;color:var(--muted);font-size:.85rem;margin-top:1.5rem}
+
+/* Responsive */
+@media (max-width:560px){
+  .auth-actions{flex-direction:column;align-items:stretch}
+  .chart-legend{grid-template-columns:1fr} /* 1 colonne sur mobile */
+}
+
+/* Footer */
+.footer-contact a {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: inherit;              /* garde la même couleur que ton footer */
+  text-decoration: none;
+  position: relative;
+}
+
+.footer-contact a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 2px;
+  background-color: currentColor; /* reprend la couleur du texte */
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.footer-contact a:hover::after {
+  transform: scaleX(1); /* animation soulignement au hover */
+}
