@@ -1,5 +1,5 @@
 User-agent: *
-Allow: /
+Disallow: /recherche
 
 # Bloque les chemins techniques si besoin
 Disallow: /admin/

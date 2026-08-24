@@ -7,7 +7,16 @@
   const cssVar = (name, fb=null) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
   const PIE_LABEL_COLOR = () => cssVar('--pie-label-color', '#fff');
-  const PIE_LABEL_SIZE  = () => parseFloat(cssVar('--pie-label-font-size', '16')) || 16;
+
+  // Taille responsive: se base sur la largeur réelle du canvas
+  const PIE_LABEL_SIZE = (chart) => {
+    const base = parseFloat(cssVar('--pie-label-font-size', '16')) || 16;
+    const w = chart?.canvas?.clientWidth || chart?.width || 460;
+
+    // 320px -> ~12px ; 720px -> base (ex: 25)
+    const scaled = Math.round((w / 720) * base);
+    return Math.max(11, Math.min(base, scaled));
+  };
 
   // ===== Couleurs de partis (fallback) ======================================
   const PARTY_COLORS = [
@@ -21,7 +30,7 @@
   const pickColor = (name, fb='#888') =>
     (PARTY_COLORS.find(p=>p.test.test(name))?.color || fb);
 
-  // ===== Nonce pour anti‑replay =============================================
+  // ===== Nonce pour anti-replay =============================================
   function makeNonce(){
     if (crypto.randomUUID) return crypto.randomUUID();
     const a=new Uint8Array(16); crypto.getRandomValues(a);
@@ -59,20 +68,33 @@
     wrap.innerHTML='';
 
     list.forEach(c=>{
-      const color  = c.color || pickColor(c.name);
-      const acro   = partyAcronym(c.name);
-      const leader = (c.leader && c.leader.trim()) || extractLeader(c.name);
-      const display = leader ? `<strong>${acro}</strong> ${leader}` : acro;
+  const color  = c.color || pickColor(c.name);
+  const acro   = partyAcronym(c.name);
 
-      const label = document.createElement('label');
-      label.className='candidate';
-      label.title = c.name; // tooltip : nom complet
-      label.innerHTML = `
-        <span class="dot" style="--dot:${color}"></span>
-        <input type="checkbox" name="candidate" value="${c.id}" />
-        <span class="cand-name">${display}</span>`;
-      wrap.appendChild(label);
-    });
+  // leader/role viennent idéalement du backend
+  const leader = (c.leader && c.leader.trim()) || extractLeader(c.name);
+
+  // role: "intérim", "co-porte-parole", etc.
+  const role = (c.role && String(c.role).trim())
+    ? ` <span class="role">(${String(c.role).trim()})</span>`
+    : '';
+
+  const display = leader
+   ? `<strong>${acro}</strong> ${leader}<span class="role">(${String(c.role).trim()})</span>`
+  : `<strong>${acro}</strong>`;
+  
+  const label = document.createElement('label');
+  label.className='candidate';
+
+  // tooltip: nom complet + rôle (si dispo)
+  label.title = c.name + (c.role ? ` (${c.role})` : '');
+
+  label.innerHTML = `
+    <span class="dot" style="--dot:${color}"></span>
+    <input type="checkbox" name="candidate" value="${c.id}" />
+    <span class="cand-name">${display}</span>`;
+  wrap.appendChild(label);
+});
 
     // Un seul choix
     wrap.addEventListener('change', e=>{
@@ -96,30 +118,45 @@
     m.appendChild(t);
   }
 
-  // ===== Labels blancs au centre des parts ==================================
+  // ===== Labels dans les tranches (responsive) ===============================
+  // Desktop: "12.3% PQ"
+  // Mobile:  "12.3%" (pour éviter les débordements)
   const sliceLabels = {
     id:'sliceLabels',
     afterDatasetsDraw(chart){
       const {ctx}=chart, ds=chart.data?.datasets?.[0];
       if(!ds) return;
+
       const meta  = chart.getDatasetMeta(0);
       const total = (ds.data||[]).reduce((a,b)=>a+Number(b||0),0)||0;
+      if (!total) return;
+
+      const w = chart.canvas?.clientWidth || chart.width || 0;
+      const isMobile = w > 0 && w < 420;
+      const minPct = isMobile ? 6 : 3;
 
       ctx.save();
       ctx.textAlign='center';
       ctx.textBaseline='middle';
-      ctx.font = `700 ${PIE_LABEL_SIZE()}px ui-sans-serif,system-ui`;
+      ctx.font = `700 ${PIE_LABEL_SIZE(chart)}px ui-sans-serif,system-ui`;
 
       meta.data.forEach((arc,i)=>{
-        const v = Number(ds.data[i]||0); if(!v||!total) return;
+        const v = Number(ds.data[i]||0); if(!v) return;
         const pct = v/total*100;
-        if (pct < 3) return; // évite les micro-tranches illisibles
+        if (pct < minPct) return;
 
         const {x,y,startAngle,endAngle,outerRadius} = arc;
         const a = (startAngle+endAngle)/2;
-        const r = outerRadius*0.62;
-        const label = `${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`;
-        const lx = x + Math.cos(a)*r, ly = y + Math.sin(a)*r;
+
+        // plus proche du centre sur mobile pour limiter débordements
+        const r = outerRadius * (isMobile ? 0.58 : 0.68);
+
+        const lx = x + Math.cos(a)*r;
+        const ly = y + Math.sin(a)*r;
+
+        const label = isMobile
+          ? `${pct.toFixed(1)}%`
+          : `${pct.toFixed(1)}% ${partyAcronym(chart.data.labels[i]||'')}`;
 
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0,0,0,.35)';
@@ -127,89 +164,68 @@
         ctx.strokeText(label, lx, ly);
         ctx.fillText(label, lx, ly);
       });
+
       ctx.restore();
     }
   };
 
-  // ===== Camembert (sans légende) ============================================
+  // ===== Donut épais + "pop" au survol (mobile friendly) =====================
   function drawPie(data){
-    const c = $('#chart'); if (!c) return;
+    const c = document.getElementById('chart'); if (!c) return;
+
     const labels = data.results.map(r=>r.name);
     const values = data.results.map(r=>r.votes);
-    const colors = data.results.map(r=>r.color||pickColor(r.name));
+    const colors = data.results.map(r=>r.color || pickColor(r.name));
+
+    const isMobile = (c.clientWidth || 0) < 420;
 
     if (chart) chart.destroy();
 
     chart = new Chart(c.getContext('2d'), {
-      type: 'pie',
-      data: { labels, datasets:[{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors,
+          borderColor: '#fff',
+          borderWidth: 2,
+          hoverOffset: isMobile ? 6 : 12,
+          spacing: 2,
+          radius: '96%',
+        }]
+      },
       options: {
         responsive: true,
+        cutout: '38%',
+        layout: { padding: 4 },
         plugins: {
           legend: { display: false },
-          tooltip: { enabled: true }
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              title: () => null,
+              label: (ctx) => {
+                const total = ctx.dataset.data.reduce((a,b)=>a+Number(b||0),0) || 0;
+                const v = Number(ctx.raw||0);
+                const pct = total ? (v*100/total) : 0;
+                const acro = partyAcronym(ctx.label || '');
+                return `${acro} : ${v} votes (${pct.toFixed(1)}%)`;
+              }
+            }
+          }
+        },
+        animation: { duration: 500 },
+        onHover: (evt, els) => {
+          evt.native.target.style.cursor = els?.length ? 'pointer' : 'default';
         }
       },
       plugins: [sliceLabels]
     });
   }
 
-  // ===== "Vote actuel" (UI) ==================================================
-  const currentVoteEl   = document.getElementById('current-vote');
-  const currentVoteDot  = document.getElementById('current-vote-dot');
-  const currentVoteAcr  = document.getElementById('current-vote-acronym');
-
-  function renderCurrentVote(vote) {
-    if (!currentVoteEl) return;
-    if (!vote) {
-      currentVoteEl.hidden = false;
-      if (currentVoteDot) currentVoteDot.style.background = '#bbb';
-      if (currentVoteAcr) currentVoteAcr.textContent = 'aucun vote enregistré';
-      return;
-    }
-    currentVoteEl.hidden = false;
-    const name = vote.name || '';
-    const color = vote.color || pickColor(name);
-    if (currentVoteDot) currentVoteDot.style.background = color;
-    if (currentVoteAcr) currentVoteAcr.textContent = partyAcronym(name);
-  }
-
-  async function loadMyVoteIfConnected() {
-    try {
-      const me = await fetchJSON('/api/me');
-      const loginBtn  = $('#loginBtn');
-      const logoutBtn = $('#logoutBtn');
-
-      if (loginBtn && logoutBtn) {
-        if (me.authenticated) {
-          loginBtn.style.display  = 'none';
-          logoutBtn.style.display = 'inline-flex';
-        } else {
-          loginBtn.style.display  = 'inline-flex';
-          logoutBtn.style.display = 'none';
-        }
-      }
-
-      if (!me.authenticated) {
-        if (currentVoteEl) currentVoteEl.hidden = true; // cache si non connecté
-        return;
-      }
-
-      const data = await fetchJSON('/api/myvote');
-      if (data && data.authenticated) {
-        renderCurrentVote(data.vote || null);
-      } else {
-        if (currentVoteEl) currentVoteEl.hidden = true;
-      }
-    } catch {
-      if (currentVoteEl) currentVoteEl.hidden = true;
-    }
-  }
-
-  // ===== Refresh global =====================================================
-  async function refresh(options = {}) {
-    const { currentChoice } = options;
-
+  // ===== Refresh global ======================================================
+  async function refresh() {
     const cands = await fetchJSON('/api/candidates');
     renderCandidates(cands);
 
@@ -217,21 +233,9 @@
     data.results = data.results.map(r=>({ ...r, color:r.color||pickColor(r.name) }));
     renderTable(data.results);
     drawPie(data);
-
-    if (currentChoice) {
-      renderCurrentVote(currentChoice);
-    } else {
-      await loadMyVoteIfConnected();
-    }
   }
 
-  // ===== Auth UI ============================================================
-  async function logout(){
-    await fetch('/auth/logout', { method:'POST' });
-    await loadMyVoteIfConnected();
-  }
-
-  // ===== Vote (anti‑replay + Turnstile optionnel) ============================
+  // ===== Vote (anti-replay + Turnstile optionnel) ============================
   async function vote(ev){
     ev.preventDefault();
     const s=$$('input[name="candidate"]').find(x=>x.checked);
@@ -239,12 +243,6 @@
     if(!s) return;
 
     try{
-      const me = await fetchJSON('/api/me');
-      if (me.oauthRequired && !me.authenticated) {
-        if (msg) msg.textContent = 'Connectez‑vous avec Google avant de voter.';
-        return;
-      }
-
       const payload = {
         candidateId: Number(s.value),
         nonce: makeNonce(),
@@ -257,10 +255,10 @@
       }
 
       if (msg) msg.textContent='Envoi…';
-      const resp = await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
+      await fetchJSON('/api/vote', { method:'POST', body: JSON.stringify(payload) });
 
       if (msg) msg.textContent='Merci! Vote enregistré.';
-      await refresh({ currentChoice: resp && resp.choice ? resp.choice : null });
+      await refresh();
     }catch(e){
       if (msg) {
         const m = (e && e.message) ? String(e.message) : 'Erreur lors du vote.';
@@ -278,27 +276,18 @@
     }
   }
 
-  // ===== Petit effet ripple sur les boutons auth =============================
-  function attachRipple(el){
-    if (!el) return;
-    el.addEventListener('click', () => {
-      el.classList.remove('is-rippling'); el.offsetWidth; // reflow
-      el.classList.add('is-rippling');
-      setTimeout(()=> el.classList.remove('is-rippling'), 500);
-    });
-  }
-
   // ===== Boot ================================================================
   document.addEventListener('DOMContentLoaded', async ()=>{
     try{
       await waitForChart();
 
       const f=$('#vote-form'); if(f) f.addEventListener('submit', vote);
-      const lg = $('#loginBtn');  if (lg) { lg.addEventListener('click', ()=> location.href='/auth/google'); attachRipple(lg); }
-      const lo = $('#logoutBtn'); if (lo) { lo.addEventListener('click', (e)=>{ e.preventDefault(); logout(); }); attachRipple(lo); }
 
       await refresh();
       setInterval(refresh,30000);
+
+      // Redessine bien au changement d’orientation / resize
+      window.addEventListener('resize', () => { if (chart) chart.update(); });
     }catch(e){
       console.error(e);
       const msg=$('#msg'); if(msg) msg.textContent=e.message;
