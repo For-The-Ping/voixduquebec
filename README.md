@@ -6,7 +6,6 @@ Ce sondage n’est **pas scientifique**, mais vise à donner une idée de tendan
 grâce à un vote unique par utilisateur.
 
 ## ✨ Fonctionnalités
-- Authentification Google (empêche les votes anonymes multiples)
 - Anti-spam (preuve de travail + limite session/IP)
 - Visualisation dynamique des résultats (Chart.js en camembert plein)
 - Résultats mis à jour en temps réel
